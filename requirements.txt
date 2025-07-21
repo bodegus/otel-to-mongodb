@@ -1,0 +1,26 @@
+# Core API dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Database
+pymongo>=4.6.0
+motor>=3.3.0
+
+# OpenTelemetry
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-instrumentation-fastapi>=0.41b0
+opentelemetry-instrumentation-pymongo>=0.41b0
+opentelemetry-exporter-otlp>=1.20.0
+
+# Utilities
+structlog>=23.2.0
+python-json-logger>=2.0.0
+tenacity>=8.2.0
+python-multipart>=0.0.6
+click>=8.1.0
+
+# Development dependencies (install with: pip install -e ".[dev]")
+# Or install separately: pip install -r requirements-dev.txt
