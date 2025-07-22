@@ -244,5 +244,6 @@ ignore = [
 known-first-party = ["app", "utils"]
 force-single-line = false
 lines-after-imports = 2
+split-on-trailing-comma = true
 
 # bandit configuration removed - now using Ruff's S rules for security scanning
