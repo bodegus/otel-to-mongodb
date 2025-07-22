@@ -235,9 +235,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "D104"]
-"tests/*" = ["S101", "S106", "D", "PLR2004", "ERA001"]
-"app/tests/*" = ["S101", "S106", "D", "PLR2004", "ERA001"]
-"app/tests/integration/*" = ["S101", "S106", "S603", "S607", "D", "PLR2004", "ERA001", "RUF005"]
+"tests/*" = ["S101", "S106", "D", "PLR2004", "ERA001", "PLC0415"]
+"app/tests/*" = ["S101", "S106", "D", "PLR2004", "ERA001", "PLC0415"]
+"app/tests/integration/*" = ["S101", "S106", "S603", "S607", "D", "PLR2004", "ERA001", "RUF005", "PLC0415"]
 "*.py" = ["ERA001"]  # Allow commented code during development
 
 [tool.ruff.lint.isort]
