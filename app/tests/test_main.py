@@ -59,6 +59,7 @@ def client(test_app):
 class TestHealthEndpoints:
     """Test health check endpoints."""
 
+    @pytest.mark.unit
     def test_basic_health_check(self, client):
         """Test basic health endpoint."""
         response = client.get("/health")
@@ -68,6 +69,7 @@ class TestHealthEndpoints:
         assert data["status"] == "healthy"
         assert data["service"] == "otel-to-mongodb-api"
 
+    @pytest.mark.unit
     def test_detailed_health_check(self, client, mock_mongodb_client):
         """Test detailed health endpoint."""
         response = client.get("/health/detailed")
@@ -108,6 +110,7 @@ class TestTelemetryEndpoints:
             ]
         }
 
+    @pytest.mark.unit
     def test_submit_traces_success(self, client, sample_traces_data, mock_mongodb_client):
         """Test successful traces submission."""
         response = client.post("/v1/traces", json=sample_traces_data)
@@ -120,6 +123,7 @@ class TestTelemetryEndpoints:
         # For successful requests, partialSuccess should be None/absent
         assert data.get("partialSuccess") is None
 
+    @pytest.mark.unit
     def test_submit_traces_validation_error(self, client):
         """Test traces submission with validation error."""
         invalid_data = {"resourceSpans": []}  # Empty array should fail
@@ -131,6 +135,7 @@ class TestTelemetryEndpoints:
         # Updated to match actual Pydantic error message
         assert "value error" in detail_msg or "validation error" in detail_msg
 
+    @pytest.mark.unit
     def test_submit_traces_invalid_hex_id(self, client, sample_traces_data):
         """Test traces with invalid hex ID."""
         # Make trace ID invalid
@@ -142,6 +147,7 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 422
 
+    @pytest.mark.unit
     def test_submit_metrics_success(self, client, mock_mongodb_client):
         """Test successful metrics submission."""
         metrics_data = {
@@ -177,6 +183,7 @@ class TestTelemetryEndpoints:
         assert isinstance(data, dict)
         assert data.get("partialSuccess") is None
 
+    @pytest.mark.unit
     def test_submit_logs_success(self, client, mock_mongodb_client):
         """Test successful logs submission."""
         logs_data = {
@@ -207,6 +214,7 @@ class TestTelemetryEndpoints:
         assert isinstance(data, dict)
         assert data.get("partialSuccess") is None
 
+    @pytest.mark.unit
     def test_request_id_header(self, client, sample_traces_data, mock_mongodb_client):
         """Test that telemetry submission works."""
         response = client.post("/v1/traces", json=sample_traces_data)
@@ -216,6 +224,7 @@ class TestTelemetryEndpoints:
         data = response.json()
         assert isinstance(data, dict)
 
+    @pytest.mark.unit
     def test_invalid_json_data(self, client):
         """Test that invalid JSON data is rejected."""
         response = client.post(
@@ -225,6 +234,7 @@ class TestTelemetryEndpoints:
         # FastAPI returns 422 for invalid JSON/data
         assert response.status_code == 422
 
+    @pytest.mark.unit
     def test_non_json_content_type_rejected(self, client):
         """Test that non-JSON content types are rejected."""
         response = client.post(
@@ -234,6 +244,7 @@ class TestTelemetryEndpoints:
         # FastAPI returns 422 for non-JSON content types
         assert response.status_code == 422
 
+    @pytest.mark.unit
     def test_valid_json_data(self, client, sample_traces_data):
         """Test that valid JSON OTLP data is accepted."""
         response = client.post("/v1/traces", json=sample_traces_data)

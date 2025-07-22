@@ -8,6 +8,7 @@ import structlog
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import ConnectionFailure, OperationFailure
 
+
 logger = structlog.get_logger()
 
 

@@ -8,6 +8,7 @@ import structlog
 from .models import OTELLogsData, OTELMetricsData, OTELTracesData, TelemetryResponse
 from .mongo_client import MongoDBClient
 
+
 logger = structlog.get_logger()
 
 
@@ -41,8 +42,8 @@ class OTELService:
             message=f"Successfully processed {record_count} traces",
             data_type="traces",
             records_processed=record_count,
-            local_storage=result.get("primary_success", False),
-            cloud_storage=result.get("secondary_success", False),
+            primary_storage=result.get("primary_success") or False,
+            secondary_storage=result.get("secondary_success") or False,
             processing_time_ms=processing_time_ms,
             document_id=result["document_id"],
         )
@@ -70,8 +71,8 @@ class OTELService:
             message=f"Successfully processed {record_count} metrics",
             data_type="metrics",
             records_processed=record_count,
-            local_storage=result.get("primary_success", False),
-            cloud_storage=result.get("secondary_success", False),
+            primary_storage=result.get("primary_success") or False,
+            secondary_storage=result.get("secondary_success") or False,
             processing_time_ms=processing_time_ms,
             document_id=result["document_id"],
         )
@@ -100,8 +101,8 @@ class OTELService:
             message=f"Successfully processed {record_count} logs",
             data_type="logs",
             records_processed=record_count,
-            local_storage=result.get("primary_success", False),
-            cloud_storage=result.get("secondary_success", False),
+            primary_storage=result.get("primary_success") or False,
+            secondary_storage=result.get("secondary_success") or False,
             processing_time_ms=processing_time_ms,
             document_id=result["document_id"],
         )

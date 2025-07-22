@@ -1,4 +1,5 @@
-"""FastAPI application for OpenTelemetry to MongoDB collection.
+"""
+FastAPI application for OpenTelemetry to MongoDB collection.
 
 This is a JSON-only OTLP (OpenTelemetry Protocol) receiver that:
 - Accepts OTLP data in JSON format via HTTP POST
@@ -28,6 +29,7 @@ from .models import (
 )
 from .mongo_client import MongoDBClient, get_mongodb_client
 from .otel_service import OTELService
+
 
 # Configure logging
 structlog.configure(
@@ -62,8 +64,11 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    """Create FastAPI application.
-    Nesting in a metho allows for easier mocking"""
+    """
+    Create FastAPI application.
+
+    Nesting in a method allows for easier mocking.
+    """
     app = FastAPI(
         title="OpenTelemetry to MongoDB API",
         description="JSON-based OTLP receiver for OpenTelemetry data",
@@ -85,7 +90,7 @@ def create_app() -> FastAPI:
     # Health endpoints
     @app.get("/health")
     async def health_check():
-        """Basic health check."""
+        """Return basic health status."""
         return {"status": "healthy", "service": "otel-to-mongodb-api"}
 
     @app.get("/health/detailed")

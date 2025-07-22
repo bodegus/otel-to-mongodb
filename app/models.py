@@ -207,8 +207,8 @@ class TelemetryResponse(BaseModel):
     message: str
     data_type: str
     records_processed: int
-    local_storage: bool
-    cloud_storage: bool
+    primary_storage: bool
+    secondary_storage: bool
     processing_time_ms: float
     document_id: str | None = None
 

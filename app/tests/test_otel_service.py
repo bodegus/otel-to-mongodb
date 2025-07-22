@@ -1,11 +1,24 @@
 """Tests for OTEL service."""
 
+# ruff: noqa: F811  # Ignore fixture redefinition warnings (imports vs function parameters)
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from app.models import OTELLogsData, OTELMetricsData, OTELTracesData
 from app.otel_service import OTELService
+
+# Import shared fixtures (used as pytest fixtures in function parameters)
+from .fixtures.otel_data import (  # noqa: F401
+    multi_logs_data,
+    multi_metrics_data,
+    multi_span_traces_data,
+    sample_logs_data,
+    sample_metrics_data,
+    sample_traces_data,
+)
+from .helpers.test_utils import OTELTestHelpers  # noqa: F401
 
 
 class TestOTELService:
@@ -30,43 +43,16 @@ class TestOTELService:
         """Create OTEL service instance with mocked MongoDB client."""
         return OTELService(mock_mongodb_client)
 
-    @pytest.fixture
-    def sample_traces_data(self):
-        """Sample traces data for testing."""
-        return {
-            "resourceSpans": [
-                {
-                    "resource": {
-                        "attributes": [
-                            {"key": "service.name", "value": {"stringValue": "test-service"}}
-                        ]
-                    },
-                    "scopeSpans": [
-                        {
-                            "scope": {"name": "test"},
-                            "spans": [
-                                {
-                                    "traceId": "12345678901234567890123456789012",
-                                    "spanId": "1234567890123456",
-                                    "name": "test-span",
-                                    "kind": 1,
-                                    "startTimeUnixNano": "1609459200000000000",
-                                    "endTimeUnixNano": "1609459201000000000",
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-        }
+    # sample_traces_data fixture now imported from shared fixtures
 
+    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_process_traces_success(
         self, otel_service, mock_mongodb_client, sample_traces_data
     ):
         """Test successful traces processing."""
-        # Convert dict to Pydantic model
-        traces_data = OTELTracesData(**sample_traces_data)
+        # Convert dict to Pydantic model - use data from fixture
+        traces_data = OTELTracesData(**sample_traces_data["data"])
 
         result = await otel_service.process_traces(traces_data)
 
@@ -79,40 +65,19 @@ class TestOTELService:
         assert "data" in call_args[1]
         assert call_args[1]["request_id"] is None
 
-        # Verify return values
+        # Verify return values using expected count from fixture
         assert result.success is True
         assert result.data_type == "traces"
-        assert result.records_processed == 1
+        assert result.records_processed == sample_traces_data["expected_count"]
 
+    @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_process_metrics_success(self, otel_service, mock_mongodb_client):
-        """Test successful metrics processing."""
-        sample_metrics_data = {
-            "resourceMetrics": [
-                {
-                    "resource": {
-                        "attributes": [
-                            {"key": "service.name", "value": {"stringValue": "test-service"}}
-                        ]
-                    },
-                    "scopeMetrics": [
-                        {
-                            "scope": {"name": "test"},
-                            "metrics": [
-                                {
-                                    "name": "test_counter",
-                                    "description": "A test counter",
-                                    "unit": "1",
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-        }
-
-        # Convert dict to Pydantic model
-        metrics_data = OTELMetricsData(**sample_metrics_data)
+    async def test_process_metrics_success(
+        self, otel_service, mock_mongodb_client, sample_metrics_data
+    ):
+        """Test successful metrics processing using shared test data."""
+        # Convert dict to Pydantic model - use data from fixture
+        metrics_data = OTELMetricsData(**sample_metrics_data["data"])
 
         result = await otel_service.process_metrics(metrics_data)
 
@@ -125,40 +90,17 @@ class TestOTELService:
         assert "data" in call_args[1]
         assert call_args[1]["request_id"] is None
 
-        # Verify return values
+        # Verify return values using expected count from fixture
         assert result.success is True
         assert result.data_type == "metrics"
-        assert result.records_processed == 1
+        assert result.records_processed == sample_metrics_data["expected_count"]
 
+    @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_process_logs_success(self, otel_service, mock_mongodb_client):
-        """Test successful logs processing."""
-        sample_logs_data = {
-            "resourceLogs": [
-                {
-                    "resource": {
-                        "attributes": [
-                            {"key": "service.name", "value": {"stringValue": "test-service"}}
-                        ]
-                    },
-                    "scopeLogs": [
-                        {
-                            "scope": {"name": "test"},
-                            "logRecords": [
-                                {
-                                    "timeUnixNano": "1609459200000000000",
-                                    "body": {"stringValue": "Test log message"},
-                                    "severityText": "INFO",
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-        }
-
-        # Convert dict to Pydantic model
-        logs_data = OTELLogsData(**sample_logs_data)
+    async def test_process_logs_success(self, otel_service, mock_mongodb_client, sample_logs_data):
+        """Test successful logs processing using shared test data."""
+        # Convert dict to Pydantic model - use data from fixture
+        logs_data = OTELLogsData(**sample_logs_data["data"])
 
         result = await otel_service.process_logs(logs_data)
 
@@ -171,43 +113,25 @@ class TestOTELService:
         assert "data" in call_args[1]
         assert call_args[1]["request_id"] is None
 
-        # Verify return values
+        # Verify return values using expected count from fixture
         assert result.success is True
         assert result.data_type == "logs"
-        assert result.records_processed == 1
+        assert result.records_processed == sample_logs_data["expected_count"]
 
-    def test_count_spans(self, otel_service):
-        """Test span counting."""
-        data = {
-            "resourceSpans": [
-                {
-                    "scopeSpans": [
-                        {"spans": [{"name": "span1"}, {"name": "span2"}]},
-                        {"spans": [{"name": "span3"}]},
-                    ]
-                }
-            ]
-        }
+    @pytest.mark.unit
+    def test_count_spans(self, otel_service, multi_span_traces_data):
+        """Test span counting using multi_span fixture."""
+        count = otel_service._count_spans(multi_span_traces_data["data"])
+        assert count == multi_span_traces_data["expected_count"]
 
-        count = otel_service._count_spans(data)
-        assert count == 3
+    @pytest.mark.unit
+    def test_count_metrics(self, otel_service, multi_metrics_data):
+        """Test metrics counting using multi_metrics fixture."""
+        count = otel_service._count_metrics(multi_metrics_data["data"])
+        assert count == multi_metrics_data["expected_count"]
 
-    def test_count_metrics(self, otel_service):
-        """Test metrics counting."""
-        data = {
-            "resourceMetrics": [
-                {"scopeMetrics": [{"metrics": [{"name": "metric1"}, {"name": "metric2"}]}]}
-            ]
-        }
-
-        count = otel_service._count_metrics(data)
-        assert count == 2
-
-    def test_count_log_records(self, otel_service):
-        """Test log records counting."""
-        data = {
-            "resourceLogs": [{"scopeLogs": [{"logRecords": [{"body": "log1"}, {"body": "log2"}]}]}]
-        }
-
-        count = otel_service._count_log_records(data)
-        assert count == 2
+    @pytest.mark.unit
+    def test_count_log_records(self, otel_service, multi_logs_data):
+        """Test log records counting using multi_logs fixture."""
+        count = otel_service._count_log_records(multi_logs_data["data"])
+        assert count == multi_logs_data["expected_count"]
