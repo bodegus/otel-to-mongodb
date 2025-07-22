@@ -1,8 +1,9 @@
 """Simple test configuration and fixtures."""
 
-import pytest
 import asyncio
-from typing import Dict, Any
+from typing import Any
+
+import pytest
 
 
 @pytest.fixture(scope="session")
@@ -14,7 +15,7 @@ def event_loop():
 
 
 @pytest.fixture
-def sample_trace_data() -> Dict[str, Any]:
+def sample_trace_data() -> dict[str, Any]:
     """Sample OpenTelemetry trace data."""
     return {
         "resourceSpans": [

@@ -1,32 +1,33 @@
 """Tests for main FastAPI application."""
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock
 
 
 @pytest.fixture
 def mock_mongodb_client():
     """Mock MongoDB client."""
     client = MagicMock()
-    
+
     # Mock the write_telemetry_data method
-    client.write_telemetry_data = AsyncMock(return_value={
-        "local_success": True,
-        "cloud_success": True,
-        "document_id": "test_id_123"
-    })
-    
+    client.write_telemetry_data = AsyncMock(
+        return_value={"local_success": True, "cloud_success": True, "document_id": "test_id_123"}
+    )
+
     # Mock the health_check method
-    client.health_check = AsyncMock(return_value={
-        "local": {"connected": True, "error": None},
-        "cloud": {"connected": False, "error": None, "enabled": False}
-    })
-    
+    client.health_check = AsyncMock(
+        return_value={
+            "local": {"connected": True, "error": None},
+            "cloud": {"connected": False, "error": None, "enabled": False},
+        }
+    )
+
     # Mock the actual database client properties that the code accesses
     client.local_client = MagicMock()
     client.local_db_name = "test_db"
-    
+
     return client
 
 
@@ -35,12 +36,12 @@ def test_app(mock_mongodb_client):
     """Test FastAPI app."""
     from app.main import create_app
     from app.mongo_client import get_mongodb_client
-    
+
     app = create_app()
-    
+
     # Override the dependency
     app.dependency_overrides[get_mongodb_client] = lambda: mock_mongodb_client
-    
+
     return app
 
 
@@ -88,24 +89,21 @@ class TestTelemetryEndpoints:
                             "scope": {"name": "test-scope"},
                             "spans": [
                                 {
-                                    "traceId": (
-                                        "0123456789abcdef0123456789abcdef"
-                                    ),
+                                    "traceId": ("0123456789abcdef0123456789abcdef"),
                                     "spanId": "0123456789abcdef",
                                     "name": "test-span",
                                     "kind": 1,
                                     "startTimeUnixNano": "1640995200000000000",
-                                    "endTimeUnixNano": "1640995201000000000"
+                                    "endTimeUnixNano": "1640995201000000000",
                                 }
-                            ]
+                            ],
                         }
-                    ]
+                    ],
                 }
             ]
         }
 
-    def test_submit_traces_success(self, client, sample_traces_data,
-                                   mock_mongodb_client):
+    def test_submit_traces_success(self, client, sample_traces_data, mock_mongodb_client):
         """Test successful traces submission."""
         response = client.post("/v1/traces", json=sample_traces_data)
 
@@ -153,20 +151,15 @@ class TestTelemetryEndpoints:
                                     "name": "test_counter",
                                     "sum": {
                                         "dataPoints": [
-                                            {
-                                                "timeUnixNano": (
-                                                    "1640995201000000000"
-                                                ),
-                                                "asInt": "42"
-                                            }
+                                            {"timeUnixNano": ("1640995201000000000"), "asInt": "42"}
                                         ],
                                         "aggregationTemporality": 2,
-                                        "isMonotonic": True
-                                    }
+                                        "isMonotonic": True,
+                                    },
                                 }
-                            ]
+                            ],
                         }
-                    ]
+                    ],
                 }
             ]
         }
@@ -192,11 +185,11 @@ class TestTelemetryEndpoints:
                                 {
                                     "timeUnixNano": "1640995200000000000",
                                     "severityNumber": 9,
-                                    "body": {"stringValue": "Test log"}
+                                    "body": {"stringValue": "Test log"},
                                 }
-                            ]
+                            ],
                         }
-                    ]
+                    ],
                 }
             ]
         }
@@ -209,8 +202,7 @@ class TestTelemetryEndpoints:
         assert isinstance(data, dict)
         assert data.get("partialSuccess") is None
 
-    def test_request_id_header(self, client, sample_traces_data,
-                               mock_mongodb_client):
+    def test_request_id_header(self, client, sample_traces_data, mock_mongodb_client):
         """Test that telemetry submission works."""
         response = client.post("/v1/traces", json=sample_traces_data)
 
@@ -222,25 +214,21 @@ class TestTelemetryEndpoints:
     def test_invalid_json_data(self, client):
         """Test that invalid JSON data is rejected."""
         response = client.post(
-            "/v1/traces", 
-            content="invalid json data",
-            headers={"Content-Type": "application/json"}
+            "/v1/traces", content="invalid json data", headers={"Content-Type": "application/json"}
         )
 
         # FastAPI returns 422 for invalid JSON/data
         assert response.status_code == 422
-        
+
     def test_non_json_content_type_rejected(self, client):
         """Test that non-JSON content types are rejected."""
         response = client.post(
-            "/v1/traces", 
-            content="some data",
-            headers={"Content-Type": "application/xml"}
+            "/v1/traces", content="some data", headers={"Content-Type": "application/xml"}
         )
 
         # FastAPI returns 422 for non-JSON content types
         assert response.status_code == 422
-        
+
     def test_valid_json_data(self, client, sample_traces_data):
         """Test that valid JSON OTLP data is accepted."""
         response = client.post("/v1/traces", json=sample_traces_data)

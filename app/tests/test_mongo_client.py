@@ -1,7 +1,8 @@
 """Tests for MongoDB client."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from app.mongo_client import MongoDBClient
 
@@ -13,19 +14,18 @@ class TestMongoDBClient:
     @pytest.fixture
     def mongo_client(self):
         """MongoDB client instance."""
-        with patch.dict('os.environ', {
-            'MONGODB_URI': 'mongodb://localhost:27017',
-            'MONGODB_DATABASE': 'test_db',
-            'ENABLE_CLOUD_SYNC': 'false'
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "MONGODB_URI": "mongodb://localhost:27017",
+                "MONGODB_DATABASE": "test_db",
+                "ENABLE_CLOUD_SYNC": "false",
+            },
+        ):
             return MongoDBClient()
 
-    @patch('app.mongo_client.AsyncIOMotorClient')
-    async def test_connect_local_success(
-        self,
-        mock_motor_client,
-        mongo_client
-    ):
+    @patch("app.mongo_client.AsyncIOMotorClient")
+    async def test_connect_local_success(self, mock_motor_client, mongo_client):
         """Test successful local connection."""
         mock_client = AsyncMock()
         mock_client.admin.command = AsyncMock(return_value={"ok": 1})
@@ -36,17 +36,11 @@ class TestMongoDBClient:
         assert mongo_client.local_client == mock_client
         mock_client.admin.command.assert_called_with("ping")
 
-    @patch('app.mongo_client.AsyncIOMotorClient')
-    async def test_connect_local_failure(
-        self,
-        mock_motor_client,
-        mongo_client
-    ):
+    @patch("app.mongo_client.AsyncIOMotorClient")
+    async def test_connect_local_failure(self, mock_motor_client, mongo_client):
         """Test local connection failure."""
         mock_client = AsyncMock()
-        mock_client.admin.command = AsyncMock(
-                                    side_effect=Exception("Connection failed")
-                                    )
+        mock_client.admin.command = AsyncMock(side_effect=Exception("Connection failed"))
         mock_motor_client.return_value = mock_client
 
         with pytest.raises(Exception):
@@ -60,7 +54,9 @@ class TestMongoDBClient:
         mock_insert_result = MagicMock()
         mock_insert_result.inserted_id = "test_id_123"
 
-        mock_local_client.__getitem__.return_value.__getitem__.return_value = mock_collection  # noqa: E501
+        mock_local_client.__getitem__.return_value.__getitem__.return_value = (
+            mock_collection  # noqa: E501
+        )
         mock_collection.insert_one.return_value = mock_insert_result
         mock_collection.update_one = AsyncMock()
 
@@ -68,9 +64,7 @@ class TestMongoDBClient:
         mongo_client.cloud_client = None  # No cloud sync
 
         result = await mongo_client.write_telemetry_data(
-            data={"test": "data"},
-            data_type="traces",
-            request_id="test-123"
+            data={"test": "data"}, data_type="traces", request_id="test-123"
         )
 
         assert result["local_success"] is True
@@ -96,12 +90,16 @@ class TestMongoDBClient:
         mock_insert_result.inserted_id = "test_id_123"
 
         # Setup local client
-        mock_local_client.__getitem__.return_value.__getitem__.return_value = mock_local_collection  # noqa: E501
+        mock_local_client.__getitem__.return_value.__getitem__.return_value = (
+            mock_local_collection  # noqa: E501
+        )
         mock_local_collection.insert_one.return_value = mock_insert_result
         mock_local_collection.update_one = AsyncMock()
 
         # Setup cloud client
-        mock_cloud_client.__getitem__.return_value.__getitem__.return_value = mock_cloud_collection  # noqa: E501
+        mock_cloud_client.__getitem__.return_value.__getitem__.return_value = (
+            mock_cloud_collection  # noqa: E501
+        )
         mock_cloud_collection.insert_one = AsyncMock()
 
         mongo_client.local_client = mock_local_client
@@ -109,9 +107,7 @@ class TestMongoDBClient:
         mongo_client.cloud_db_name = "cloud_test_db"
 
         result = await mongo_client.write_telemetry_data(
-            data={"test": "data"},
-            data_type="traces",
-            request_id="test-123"
+            data={"test": "data"}, data_type="traces", request_id="test-123"
         )
 
         assert result["local_success"] is True
@@ -141,7 +137,7 @@ class TestMongoDBClient:
     async def test_health_check_local_unhealthy(self, mongo_client):
         """Test health check with unhealthy local database."""
         from pymongo.errors import ConnectionFailure
-        
+
         mock_local_client = AsyncMock()
         mock_local_client.admin.command = AsyncMock(
             side_effect=ConnectionFailure("Connection lost")

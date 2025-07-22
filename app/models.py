@@ -1,36 +1,41 @@
 """Pydantic models for OpenTelemetry data and API responses."""
 
-from typing import Dict, List, Any, Optional
+from typing import Any, Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 
 # OpenTelemetry Base Models
 class OTELAttribute(BaseModel):
     """OpenTelemetry attribute."""
+
     key: str
-    value: Dict[str, Any]
+    value: dict[str, Any]
 
 
 class OTELResource(BaseModel):
     """OpenTelemetry resource."""
-    attributes: List[OTELAttribute] = Field(default_factory=list)
+
+    attributes: list[OTELAttribute] = Field(default_factory=list)
 
 
 class OTELScope(BaseModel):
     """OpenTelemetry instrumentation scope."""
+
     name: str
     version: Optional[str] = None
 
 
 class OTELSpan(BaseModel):
     """OpenTelemetry span."""
+
     trace_id: str = Field(alias="traceId")
     span_id: str = Field(alias="spanId")
     name: str
     kind: int
     start_time_unix_nano: str = Field(alias="startTimeUnixNano")
     end_time_unix_nano: str = Field(alias="endTimeUnixNano")
-    attributes: List[OTELAttribute] = Field(default_factory=list)
+    attributes: list[OTELAttribute] = Field(default_factory=list)
 
     @field_validator("trace_id", "span_id")
     @classmethod
@@ -46,20 +51,22 @@ class OTELSpan(BaseModel):
 
 class OTELScopeSpans(BaseModel):
     """OpenTelemetry scope spans."""
+
     scope: OTELScope
-    spans: List[OTELSpan] = Field(default_factory=list)
+    spans: list[OTELSpan] = Field(default_factory=list)
 
 
 class OTELResourceSpans(BaseModel):
     """OpenTelemetry resource spans."""
+
     resource: OTELResource
-    scope_spans: List[OTELScopeSpans] = Field(
-        default_factory=list, alias="scopeSpans")
+    scope_spans: list[OTELScopeSpans] = Field(default_factory=list, alias="scopeSpans")
 
 
 class OTELTracesData(BaseModel):
     """OpenTelemetry traces data."""
-    resource_spans: List[OTELResourceSpans] = Field(alias="resourceSpans")
+
+    resource_spans: list[OTELResourceSpans] = Field(alias="resourceSpans")
 
     @field_validator("resource_spans")
     @classmethod
@@ -73,26 +80,30 @@ class OTELTracesData(BaseModel):
 # Metrics Models
 class OTELNumberDataPoint(BaseModel):
     """OpenTelemetry number data point."""
+
     time_unix_nano: str = Field(alias="timeUnixNano")
     as_double: Optional[float] = Field(default=None, alias="asDouble")
     as_int: Optional[str] = Field(default=None, alias="asInt")
-    attributes: List[OTELAttribute] = Field(default_factory=list)
+    attributes: list[OTELAttribute] = Field(default_factory=list)
 
 
 class OTELSum(BaseModel):
     """OpenTelemetry sum metric."""
-    data_points: List[OTELNumberDataPoint] = Field(alias="dataPoints")
+
+    data_points: list[OTELNumberDataPoint] = Field(alias="dataPoints")
     aggregation_temporality: int = Field(alias="aggregationTemporality")
     is_monotonic: bool = Field(alias="isMonotonic")
 
 
 class OTELGauge(BaseModel):
     """OpenTelemetry gauge metric."""
-    data_points: List[OTELNumberDataPoint] = Field(alias="dataPoints")
+
+    data_points: list[OTELNumberDataPoint] = Field(alias="dataPoints")
 
 
 class OTELMetric(BaseModel):
     """OpenTelemetry metric."""
+
     name: str
     description: Optional[str] = None
     unit: Optional[str] = None
@@ -110,21 +121,22 @@ class OTELMetric(BaseModel):
 
 class OTELScopeMetrics(BaseModel):
     """OpenTelemetry scope metrics."""
+
     scope: OTELScope
-    metrics: List[OTELMetric] = Field(default_factory=list)
+    metrics: list[OTELMetric] = Field(default_factory=list)
 
 
 class OTELResourceMetrics(BaseModel):
     """OpenTelemetry resource metrics."""
+
     resource: OTELResource
-    scope_metrics: List[OTELScopeMetrics] = Field(
-        default_factory=list, alias="scopeMetrics")
+    scope_metrics: list[OTELScopeMetrics] = Field(default_factory=list, alias="scopeMetrics")
 
 
 class OTELMetricsData(BaseModel):
     """OpenTelemetry metrics data."""
-    resource_metrics: List[OTELResourceMetrics] = Field(
-        alias="resourceMetrics")
+
+    resource_metrics: list[OTELResourceMetrics] = Field(alias="resourceMetrics")
 
     @field_validator("resource_metrics")
     @classmethod
@@ -138,12 +150,12 @@ class OTELMetricsData(BaseModel):
 # Logs Models
 class OTELLogRecord(BaseModel):
     """OpenTelemetry log record."""
+
     time_unix_nano: Optional[str] = Field(default=None, alias="timeUnixNano")
-    severity_number: Optional[int] = Field(
-        default=None, alias="severityNumber")
+    severity_number: Optional[int] = Field(default=None, alias="severityNumber")
     severity_text: Optional[str] = Field(default=None, alias="severityText")
-    body: Optional[Dict[str, Any]] = None
-    attributes: List[OTELAttribute] = Field(default_factory=list)
+    body: Optional[dict[str, Any]] = None
+    attributes: list[OTELAttribute] = Field(default_factory=list)
     trace_id: Optional[str] = Field(default=None, alias="traceId")
     span_id: Optional[str] = Field(default=None, alias="spanId")
 
@@ -161,21 +173,22 @@ class OTELLogRecord(BaseModel):
 
 class OTELScopeLogs(BaseModel):
     """OpenTelemetry scope logs."""
+
     scope: OTELScope
-    log_records: List[OTELLogRecord] = Field(
-        default_factory=list, alias="logRecords")
+    log_records: list[OTELLogRecord] = Field(default_factory=list, alias="logRecords")
 
 
 class OTELResourceLogs(BaseModel):
     """OpenTelemetry resource logs."""
+
     resource: OTELResource
-    scope_logs: List[OTELScopeLogs] = Field(
-        default_factory=list, alias="scopeLogs")
+    scope_logs: list[OTELScopeLogs] = Field(default_factory=list, alias="scopeLogs")
 
 
 class OTELLogsData(BaseModel):
     """OpenTelemetry logs data."""
-    resource_logs: List[OTELResourceLogs] = Field(alias="resourceLogs")
+
+    resource_logs: list[OTELResourceLogs] = Field(alias="resourceLogs")
 
     @field_validator("resource_logs")
     @classmethod
@@ -189,6 +202,7 @@ class OTELLogsData(BaseModel):
 # Response Models
 class TelemetryResponse(BaseModel):
     """Response for telemetry data submission."""
+
     success: bool = True
     message: str
     data_type: str
@@ -202,49 +216,60 @@ class TelemetryResponse(BaseModel):
 # OTLP-Compliant Response Models (as per OTLP specification)
 class ExportTracePartialSuccess(BaseModel):
     """OTLP Export trace partial success."""
+
     rejected_spans: int = Field(default=0, alias="rejectedSpans")
     error_message: str = Field(default="", alias="errorMessage")
 
 
 class ExportMetricsPartialSuccess(BaseModel):
     """OTLP Export metrics partial success."""
+
     rejected_data_points: int = Field(default=0, alias="rejectedDataPoints")
     error_message: str = Field(default="", alias="errorMessage")
 
 
 class ExportLogsPartialSuccess(BaseModel):
     """OTLP Export logs partial success."""
+
     rejected_log_records: int = Field(default=0, alias="rejectedLogRecords")
     error_message: str = Field(default="", alias="errorMessage")
 
 
 class ExportTraceServiceResponse(BaseModel):
     """OTLP-compliant trace export response."""
+
     partial_success: Optional[ExportTracePartialSuccess] = Field(
-        default=None, alias="partialSuccess")
+        default=None, alias="partialSuccess"
+    )
 
 
 class ExportMetricsServiceResponse(BaseModel):
     """OTLP-compliant metrics export response."""
+
     partial_success: Optional[ExportMetricsPartialSuccess] = Field(
-        default=None, alias="partialSuccess")
+        default=None, alias="partialSuccess"
+    )
 
 
 class ExportLogsServiceResponse(BaseModel):
     """OTLP-compliant logs export response."""
+
     partial_success: Optional[ExportLogsPartialSuccess] = Field(
-        default=None, alias="partialSuccess")
+        default=None, alias="partialSuccess"
+    )
 
 
 class Status(BaseModel):
     """OTLP Status message for errors."""
+
     code: Optional[int] = None
     message: str
-    details: Optional[List[Dict[str, Any]]] = None
+    details: Optional[list[dict[str, Any]]] = None
 
 
 class ErrorResponse(BaseModel):
     """Error response."""
+
     success: bool = False
     message: str
     error_code: str

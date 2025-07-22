@@ -7,6 +7,7 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: check-json
+        exclude: ^\.vscode/
       - id: check-added-large-files
         args: ['--maxkb=1000']
         exclude: 'reference/'
