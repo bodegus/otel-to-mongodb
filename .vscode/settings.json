@@ -56,5 +56,21 @@
     "python.linting.enabled": true,
     "python.linting.ruffEnabled": true,
     "python.linting.flake8Enabled": false, // Disabled in favor of Ruff
+    "python.linting.maxLineLength": 100,
+    "python.analysis.autoImportCompletions": true,
     // Import sorting now handled by Ruff automatically
+    // Ensure 100 character line length everywhere
+    "python.formatting.blackArgs": [
+        "--line-length=100"
+    ],
+    // Pylsp settings (if using)
+    "pylsp.plugins.pycodestyle.maxLineLength": 100,
+    "pylsp.plugins.flake8.maxLineLength": 100,
+    // Flake8 extension settings (force 100 chars or disable)
+    "flake8.args": [
+        "--max-line-length=100"
+    ],
+    "flake8.enabled": false,
+    // Disable deprecated extensions in favor of Ruff
+    "isort.check": false
 }
