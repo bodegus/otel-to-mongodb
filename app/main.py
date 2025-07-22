@@ -1,4 +1,13 @@
-"""FastAPI application for OpenTelemetry to MongoDB collection."""
+"""FastAPI application for OpenTelemetry to MongoDB collection.
+
+This is a JSON-only OTLP (OpenTelemetry Protocol) receiver that:
+- Accepts OTLP data in JSON format via HTTP POST
+- Provides OTLP-compliant response messages
+- Stores telemetry data in MongoDB (local and optionally cloud)
+- Supports traces, metrics, and logs
+
+Note: Binary protobuf format is not supported - only JSON.
+"""
 
 import logging
 from contextlib import asynccontextmanager
@@ -10,7 +19,10 @@ import structlog
 from .mongo_client import MongoDBClient, get_mongodb_client
 from .otel_service import OTELService
 from .models import (OTELTracesData, OTELMetricsData,
-                     OTELLogsData, ErrorResponse)
+                     OTELLogsData, ErrorResponse,
+                     ExportTraceServiceResponse,
+                     ExportMetricsServiceResponse,
+                     ExportLogsServiceResponse, Status)
 
 # Configure logging
 structlog.configure(
@@ -49,7 +61,7 @@ def create_app() -> FastAPI:
     Nesting in a metho allows for easier mocking"""
     app = FastAPI(
         title="OpenTelemetry to MongoDB API",
-        description="Simple API for collecting OpenTelemetry data",
+        description="JSON-based OTLP receiver for OpenTelemetry data",
         version="0.1.0",
         lifespan=lifespan,
     )
@@ -88,35 +100,68 @@ def create_app() -> FastAPI:
         }
 
     # Telemetry endpoints
-    @app.post("/v1/traces")
+    @app.post("/v1/traces", response_model=ExportTraceServiceResponse)
     async def submit_traces(
         traces_data: OTELTracesData,
         mongodb_client: MongoDBClient = Depends(get_mongodb_client)
     ):
-        """Submit OpenTelemetry traces."""
-        service = OTELService(mongodb_client)
-        result = await service.process_traces(traces_data)
-        return result
+        """Submit OpenTelemetry traces (JSON format only)."""
+        try:
+            service = OTELService(mongodb_client)
+            await service.process_traces(traces_data)
+            
+            # Return OTLP-compliant response (success case)
+            return ExportTraceServiceResponse()
+            
+        except Exception as e:
+            logger.error("Failed to process traces", error=str(e))
+            error_msg = f"Internal server error: {str(e)}"
+            return JSONResponse(
+                status_code=500,
+                content=Status(message=error_msg).model_dump()
+            )
 
-    @app.post("/v1/metrics")
+    @app.post("/v1/metrics", response_model=ExportMetricsServiceResponse)
     async def submit_metrics(
         metrics_data: OTELMetricsData,
         mongodb_client: MongoDBClient = Depends(get_mongodb_client)
     ):
-        """Submit OpenTelemetry metrics."""
-        service = OTELService(mongodb_client)
-        result = await service.process_metrics(metrics_data)
-        return result
+        """Submit OpenTelemetry metrics (JSON format only)."""
+        try:
+            service = OTELService(mongodb_client)
+            await service.process_metrics(metrics_data)
+            
+            # Return OTLP-compliant response (success case)
+            return ExportMetricsServiceResponse()
+            
+        except Exception as e:
+            logger.error("Failed to process metrics", error=str(e))
+            error_msg = f"Internal server error: {str(e)}"
+            return JSONResponse(
+                status_code=500,
+                content=Status(message=error_msg).model_dump()
+            )
 
-    @app.post("/v1/logs")
+    @app.post("/v1/logs", response_model=ExportLogsServiceResponse)
     async def submit_logs(
         logs_data: OTELLogsData,
         mongodb_client: MongoDBClient = Depends(get_mongodb_client)
     ):
-        """Submit OpenTelemetry logs."""
-        service = OTELService(mongodb_client)
-        result = await service.process_logs(logs_data)
-        return result
+        """Submit OpenTelemetry logs (JSON format only)."""
+        try:
+            service = OTELService(mongodb_client)
+            await service.process_logs(logs_data)
+            
+            # Return OTLP-compliant response (success case)
+            return ExportLogsServiceResponse()
+            
+        except Exception as e:
+            logger.error("Failed to process logs", error=str(e))
+            error_msg = f"Internal server error: {str(e)}"
+            return JSONResponse(
+                status_code=500,
+                content=Status(message=error_msg).model_dump()
+            )
 
     return app
 

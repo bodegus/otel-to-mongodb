@@ -199,6 +199,50 @@ class TelemetryResponse(BaseModel):
     document_id: Optional[str] = None
 
 
+# OTLP-Compliant Response Models (as per OTLP specification)
+class ExportTracePartialSuccess(BaseModel):
+    """OTLP Export trace partial success."""
+    rejected_spans: int = Field(default=0, alias="rejectedSpans")
+    error_message: str = Field(default="", alias="errorMessage")
+
+
+class ExportMetricsPartialSuccess(BaseModel):
+    """OTLP Export metrics partial success."""
+    rejected_data_points: int = Field(default=0, alias="rejectedDataPoints")
+    error_message: str = Field(default="", alias="errorMessage")
+
+
+class ExportLogsPartialSuccess(BaseModel):
+    """OTLP Export logs partial success."""
+    rejected_log_records: int = Field(default=0, alias="rejectedLogRecords")
+    error_message: str = Field(default="", alias="errorMessage")
+
+
+class ExportTraceServiceResponse(BaseModel):
+    """OTLP-compliant trace export response."""
+    partial_success: Optional[ExportTracePartialSuccess] = Field(
+        default=None, alias="partialSuccess")
+
+
+class ExportMetricsServiceResponse(BaseModel):
+    """OTLP-compliant metrics export response."""
+    partial_success: Optional[ExportMetricsPartialSuccess] = Field(
+        default=None, alias="partialSuccess")
+
+
+class ExportLogsServiceResponse(BaseModel):
+    """OTLP-compliant logs export response."""
+    partial_success: Optional[ExportLogsPartialSuccess] = Field(
+        default=None, alias="partialSuccess")
+
+
+class Status(BaseModel):
+    """OTLP Status message for errors."""
+    code: Optional[int] = None
+    message: str
+    details: Optional[List[Dict[str, Any]]] = None
+
+
 class ErrorResponse(BaseModel):
     """Error response."""
     success: bool = False

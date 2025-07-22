@@ -164,7 +164,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q --strict-markers --strict-config  --ignore=reference"
-testpaths = ["tests"]
+testpaths = ["app/tests"]
 markers = [
     "unit: Unit tests",
     "integration: Integration tests",
