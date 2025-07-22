@@ -144,7 +144,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config --ignore=reference --maxfail=5"
+addopts = "-ra -q --strict-markers --strict-config --ignore=reference --maxfail=5 -s --log-cli-level=INFO --log-cli-format='%(asctime)s [%(levelname)8s] %(name)s: %(message)s'"
 testpaths = ["app/tests"]
 markers = [
     "unit: Unit tests (fast, with mocks)",

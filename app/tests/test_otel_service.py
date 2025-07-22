@@ -18,7 +18,6 @@ from .fixtures.otel_data import (  # noqa: F401
     sample_metrics_data,
     sample_traces_data,
 )
-from .helpers.test_utils import OTELTestHelpers  # noqa: F401
 
 
 class TestOTELService:
