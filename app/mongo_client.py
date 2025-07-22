@@ -12,144 +12,171 @@ logger = structlog.get_logger()
 
 
 class MongoDBClient:
-    """MongoDB client with local and cloud database support."""
+    """MongoDB client with primary and secondary database support."""
 
     def __init__(self):
-        # Configuration from environment
-        self.local_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-        self.local_db_name = os.getenv("MONGODB_DATABASE", "otel_db")
-        self.cloud_uri = os.getenv("CLOUD_MONGODB_URI")
-        self.cloud_db_name = os.getenv("CLOUD_MONGODB_DATABASE")
-        self.enable_cloud_sync = bool(os.getenv("ENABLE_CLOUD_SYNC", "false"))
+        # Configuration from environment - both optional
+        self.primary_uri = os.getenv("PRIMARY_MONGODB_URI")
+        self.secondary_uri = os.getenv("SECONDARY_MONGODB_URI")
+        self.db_name = os.getenv("MONGODB_DATABASE", "otel_db")
 
-        self.local_client: AsyncIOMotorClient | None = None
-        self.cloud_client: AsyncIOMotorClient | None = None
+        self.primary_client: AsyncIOMotorClient | None = None
+        self.secondary_client: AsyncIOMotorClient | None = None
 
-    async def connect(self):
-        """Connect to MongoDB instances."""
-        logger.info("Connecting to MongoDB", local_uri=self.local_uri)
+    async def connect(self) -> None:
+        """Connect to available MongoDB instances."""
+        logger.info("Connecting to MongoDB instances")
 
-        # Connect to local database (required)
-        self.local_client = AsyncIOMotorClient(self.local_uri)
-        try:
-            await self.local_client.admin.command("ping")
-            logger.info("Connected to local MongoDB")
-        except (ConnectionFailure, OperationFailure) as e:
-            logger.error("Failed to connect to local MongoDB", error=str(e))
-            raise
-
-        # Connect to cloud database (optional)
-        if self.enable_cloud_sync and self.cloud_uri:
+        # Connect to primary database if configured
+        if self.primary_uri:
             try:
-                self.cloud_client = AsyncIOMotorClient(self.cloud_uri)
-                await self.cloud_client.admin.command("ping")
-                logger.info("Connected to cloud MongoDB")
+                self.primary_client = AsyncIOMotorClient(self.primary_uri)
+                await self.primary_client.admin.command("ping")
+                logger.info("Connected to primary MongoDB", uri=self.primary_uri)
             except (ConnectionFailure, OperationFailure) as e:
-                logger.warning("Failed to connect to cloud MongoDB", error=str(e))
-                self.cloud_client = None
-                raise
+                logger.error("Failed to connect to primary MongoDB", error=str(e))
+                self.primary_client = None
 
-    async def disconnect(self):
+        # Connect to secondary database if configured
+        if self.secondary_uri:
+            try:
+                self.secondary_client = AsyncIOMotorClient(self.secondary_uri)
+                await self.secondary_client.admin.command("ping")
+                logger.info("Connected to secondary MongoDB", uri=self.secondary_uri)
+            except (ConnectionFailure, OperationFailure) as e:
+                logger.error("Failed to connect to secondary MongoDB", error=str(e))
+                self.secondary_client = None
+
+        # Ensure at least one database is available
+        if not self.primary_client and not self.secondary_client:
+            raise ConnectionError("No MongoDB databases available")
+
+    async def disconnect(self) -> None:
         """Disconnect from MongoDB instances."""
-        if self.local_client:
-            self.local_client.close()
-        if self.cloud_client:
-            self.cloud_client.close()
+        if self.primary_client:
+            self.primary_client.close()
+        if self.secondary_client:
+            self.secondary_client.close()
         logger.info("Disconnected from MongoDB")
 
     async def write_telemetry_data(
-        self, data: dict[str, Any], data_type: str, request_id: str
+        self, data: dict[str, Any], data_type: str, request_id: str | None = None
     ) -> dict[str, Any]:
-        """Write telemetry data to databases."""
+        """Write telemetry data to available databases."""
         document = {
             **data,
             "data_type": data_type,
             "request_id": request_id,
             "created_at": datetime.now(UTC).isoformat(),
-            "cloud_synced": False,
-            "sync_attempts": 0,
         }
 
-        result = {"local_success": False, "cloud_success": False, "document_id": None}
+        results = []
 
-        # Write to local database (required)
-        try:
-            local_db = self.local_client[self.local_db_name]
-            local_collection = local_db[data_type]
-            local_result = await local_collection.insert_one(document)
-            result["local_success"] = True
-            result["document_id"] = str(local_result.inserted_id)
-            logger.info(
-                "Wrote to local database", data_type=data_type, document_id=result["document_id"]
+        # Try primary database if available
+        if self.primary_client:
+            result = await self._write_to_database(
+                self.primary_client, "primary", document, data_type
             )
-        except Exception as e:
-            logger.error("Failed to write to local database", error=str(e))
-            raise
+            results.append(result)
 
-        # Write to cloud database (optional)
-        if self.cloud_client:
-            try:
-                cloud_db = self.cloud_client[self.cloud_db_name]
-                cloud_collection = cloud_db[data_type]
-                cloud_document = {**document, "cloud_synced": True}
-                await cloud_collection.insert_one(cloud_document)
-                result["cloud_success"] = True
+        # Try secondary database if available
+        if self.secondary_client:
+            result = await self._write_to_database(
+                self.secondary_client, "secondary", document, data_type
+            )
+            results.append(result)
 
-                # Mark local document as synced
-                await local_collection.update_one(
-                    {"_id": local_result.inserted_id},
-                    {
-                        "$set": {
-                            "cloud_synced": True,
-                            "synced_at": datetime.now(UTC).isoformat(),
-                        }
-                    },
-                )
-                logger.info("Wrote to cloud database", data_type=data_type)
-            except Exception as e:
-                logger.warning("Failed to write to cloud database", error=str(e))
-                # Add to failed queue for retry
-                await self._add_to_failed_queue(document, data_type, str(e))
+        return self._combine_results(results)
 
-        return result
-
-    async def _add_to_failed_queue(self, document: dict[str, Any], data_type: str, error: str):
-        """Add failed sync to retry queue."""
+    async def _write_to_database(
+        self, client: AsyncIOMotorClient, db_type: str, document: dict[str, Any], data_type: str
+    ) -> dict[str, Any]:
+        """Write to a specific database."""
         try:
-            failed_collection = self.local_client[self.local_db_name][f"failed_{data_type}"]
-            failed_document = {
-                **document,
-                "failed_at": datetime.now(UTC).isoformat(),
-                "error": error,
-                "retry_count": 0,
+            collection = client[self.db_name][data_type]
+            result = await collection.insert_one(document)
+            document_id = str(result.inserted_id)
+
+            logger.info(
+                "Successfully wrote to database",
+                db_type=db_type,
+                data_type=data_type,
+                document_id=document_id,
+            )
+
+            return {
+                "success": True,
+                "db_type": db_type,
+                "document_id": document_id,
+                "error": None,
             }
-            await failed_collection.insert_one(failed_document)
-            logger.info("Added to failed queue", data_type=data_type)
         except Exception as e:
-            logger.error("Failed to add to failed queue", error=str(e))
+            logger.warning(
+                "Failed to write to database",
+                db_type=db_type,
+                data_type=data_type,
+                error=str(e),
+            )
+            return {
+                "success": False,
+                "db_type": db_type,
+                "document_id": None,
+                "error": str(e),
+            }
+
+    def _combine_results(self, results: list[dict[str, Any]]) -> dict[str, Any]:
+        """Combine write results from multiple databases."""
+        if not results:
+            return {"success": False, "error": "No databases available"}
+
+        # Extract results by database type
+        primary_result = next((r for r in results if r["db_type"] == "primary"), None)
+        secondary_result = next((r for r in results if r["db_type"] == "secondary"), None)
+
+        # Success if ANY database succeeded
+        any_success = any(r["success"] for r in results)
+
+        # Use primary document_id if available, otherwise secondary
+        document_id = None
+        if primary_result and primary_result["success"]:
+            document_id = primary_result["document_id"]
+        elif secondary_result and secondary_result["success"]:
+            document_id = secondary_result["document_id"]
+
+        return {
+            "success": any_success,
+            "primary_success": primary_result["success"] if primary_result else None,
+            "secondary_success": secondary_result["success"] if secondary_result else None,
+            "document_id": document_id,
+            "errors": [r["error"] for r in results if r["error"]],
+        }
 
     async def health_check(self) -> dict[str, Any]:
         """Check health of database connections."""
         health = {
-            "local": {"connected": False, "error": None},
-            "cloud": {"connected": False, "error": None, "enabled": self.enable_cloud_sync},
+            "primary": {"connected": False, "error": None, "configured": bool(self.primary_uri)},
+            "secondary": {
+                "connected": False,
+                "error": None,
+                "configured": bool(self.secondary_uri),
+            },
         }
 
-        # Check local database
-        try:
-            if self.local_client:
-                await self.local_client.admin.command("ping")
-                health["local"]["connected"] = True
-        except (ConnectionFailure, OperationFailure) as e:
-            health["local"]["error"] = str(e)
-
-        # Check cloud database
-        if self.enable_cloud_sync and self.cloud_client:
+        # Check primary database
+        if self.primary_client:
             try:
-                await self.cloud_client.admin.command("ping")
-                health["cloud"]["connected"] = True
+                await self.primary_client.admin.command("ping")
+                health["primary"]["connected"] = True
             except (ConnectionFailure, OperationFailure) as e:
-                health["cloud"]["error"] = str(e)
+                health["primary"]["error"] = str(e)
+
+        # Check secondary database
+        if self.secondary_client:
+            try:
+                await self.secondary_client.admin.command("ping")
+                health["secondary"]["connected"] = True
+            except (ConnectionFailure, OperationFailure) as e:
+                health["secondary"]["error"] = str(e)
 
         return health
 

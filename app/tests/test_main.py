@@ -13,14 +13,19 @@ def mock_mongodb_client():
 
     # Mock the write_telemetry_data method
     client.write_telemetry_data = AsyncMock(
-        return_value={"local_success": True, "cloud_success": True, "document_id": "test_id_123"}
+        return_value={
+            "success": True,
+            "primary_success": True,
+            "secondary_success": False,
+            "document_id": "test_id_123",
+        }
     )
 
     # Mock the health_check method
     client.health_check = AsyncMock(
         return_value={
-            "local": {"connected": True, "error": None},
-            "cloud": {"connected": False, "error": None, "enabled": False},
+            "primary": {"connected": True, "error": None, "configured": True},
+            "secondary": {"connected": False, "error": None, "configured": False},
         }
     )
 
@@ -70,8 +75,8 @@ class TestHealthEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
-        assert data["local_database"]["connected"] is True
-        assert data["cloud_database"]["connected"] is False
+        assert data["primary_database"]["connected"] is True
+        assert data["secondary_database"]["connected"] is False
 
 
 class TestTelemetryEndpoints:

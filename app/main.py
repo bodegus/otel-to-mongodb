@@ -92,12 +92,15 @@ def create_app() -> FastAPI:
     async def detailed_health_check(mongodb_client: MongoDBClient = Depends(get_mongodb_client)):
         """Detailed health check with database status."""
         health_status = await mongodb_client.health_check()
-        is_healthy = health_status["local"]["connected"]
+        # Healthy if ANY database is connected
+        primary_healthy = health_status["primary"]["connected"]
+        secondary_healthy = health_status["secondary"]["connected"]
+        is_healthy = primary_healthy or secondary_healthy
         status = "healthy" if is_healthy else "unhealthy"
         return {
             "status": status,
-            "local_database": health_status["local"],
-            "cloud_database": health_status["cloud"],
+            "primary_database": health_status["primary"],
+            "secondary_database": health_status["secondary"],
         }
 
     # Telemetry endpoints

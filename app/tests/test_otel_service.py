@@ -17,8 +17,9 @@ class TestOTELService:
         client = MagicMock()
         client.write_telemetry_data = AsyncMock(
             return_value={
-                "local_success": True,
-                "cloud_success": True,
+                "success": True,
+                "primary_success": True,
+                "secondary_success": True,
                 "document_id": "test_id_123",
             }
         )
