@@ -2,7 +2,7 @@
 
 import os
 from datetime import UTC, datetime
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -22,8 +22,8 @@ class MongoDBClient:
         self.cloud_db_name = os.getenv("CLOUD_MONGODB_DATABASE")
         self.enable_cloud_sync = bool(os.getenv("ENABLE_CLOUD_SYNC", "false"))
 
-        self.local_client: Optional[AsyncIOMotorClient] = None
-        self.cloud_client: Optional[AsyncIOMotorClient] = None
+        self.local_client: AsyncIOMotorClient | None = None
+        self.cloud_client: AsyncIOMotorClient | None = None
 
     async def connect(self):
         """Connect to MongoDB instances."""
@@ -155,7 +155,7 @@ class MongoDBClient:
 
 
 # Global client instance
-_mongodb_client: Optional[MongoDBClient] = None
+_mongodb_client: MongoDBClient | None = None
 
 
 def get_mongodb_client() -> MongoDBClient:

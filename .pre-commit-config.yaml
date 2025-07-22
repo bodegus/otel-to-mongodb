@@ -54,7 +54,7 @@ repos:
     rev: v0.1.8
     hooks:
       - id: ruff
-        args: [--fix, "--ignore=UP007,B904,B017"]
+        args: [--fix]
 
   - repo: local
     hooks:

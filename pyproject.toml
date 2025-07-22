@@ -206,6 +206,8 @@ precision = 2
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -218,11 +220,13 @@ select = [
 ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
+    "B904",  # raise ... from err (too strict for this project)
+    "B017",  # pytest.raises(Exception) is fine for tests
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/*" = ["S101", "S106"]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["app", "utils"]

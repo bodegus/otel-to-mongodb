@@ -1,6 +1,6 @@
 """Pydantic models for OpenTelemetry data and API responses."""
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -23,7 +23,7 @@ class OTELScope(BaseModel):
     """OpenTelemetry instrumentation scope."""
 
     name: str
-    version: Optional[str] = None
+    version: str | None = None
 
 
 class OTELSpan(BaseModel):
@@ -82,8 +82,8 @@ class OTELNumberDataPoint(BaseModel):
     """OpenTelemetry number data point."""
 
     time_unix_nano: str = Field(alias="timeUnixNano")
-    as_double: Optional[float] = Field(default=None, alias="asDouble")
-    as_int: Optional[str] = Field(default=None, alias="asInt")
+    as_double: float | None = Field(default=None, alias="asDouble")
+    as_int: str | None = Field(default=None, alias="asInt")
     attributes: list[OTELAttribute] = Field(default_factory=list)
 
 
@@ -105,10 +105,10 @@ class OTELMetric(BaseModel):
     """OpenTelemetry metric."""
 
     name: str
-    description: Optional[str] = None
-    unit: Optional[str] = None
-    gauge: Optional[OTELGauge] = None
-    sum: Optional[OTELSum] = None
+    description: str | None = None
+    unit: str | None = None
+    gauge: OTELGauge | None = None
+    sum: OTELSum | None = None
 
     @field_validator("name")
     @classmethod
@@ -151,13 +151,13 @@ class OTELMetricsData(BaseModel):
 class OTELLogRecord(BaseModel):
     """OpenTelemetry log record."""
 
-    time_unix_nano: Optional[str] = Field(default=None, alias="timeUnixNano")
-    severity_number: Optional[int] = Field(default=None, alias="severityNumber")
-    severity_text: Optional[str] = Field(default=None, alias="severityText")
-    body: Optional[dict[str, Any]] = None
+    time_unix_nano: str | None = Field(default=None, alias="timeUnixNano")
+    severity_number: int | None = Field(default=None, alias="severityNumber")
+    severity_text: str | None = Field(default=None, alias="severityText")
+    body: dict[str, Any] | None = None
     attributes: list[OTELAttribute] = Field(default_factory=list)
-    trace_id: Optional[str] = Field(default=None, alias="traceId")
-    span_id: Optional[str] = Field(default=None, alias="spanId")
+    trace_id: str | None = Field(default=None, alias="traceId")
+    span_id: str | None = Field(default=None, alias="spanId")
 
     @field_validator("trace_id", "span_id")
     @classmethod
@@ -210,7 +210,7 @@ class TelemetryResponse(BaseModel):
     local_storage: bool
     cloud_storage: bool
     processing_time_ms: float
-    document_id: Optional[str] = None
+    document_id: str | None = None
 
 
 # OTLP-Compliant Response Models (as per OTLP specification)
@@ -238,15 +238,13 @@ class ExportLogsPartialSuccess(BaseModel):
 class ExportTraceServiceResponse(BaseModel):
     """OTLP-compliant trace export response."""
 
-    partial_success: Optional[ExportTracePartialSuccess] = Field(
-        default=None, alias="partialSuccess"
-    )
+    partial_success: ExportTracePartialSuccess | None = Field(default=None, alias="partialSuccess")
 
 
 class ExportMetricsServiceResponse(BaseModel):
     """OTLP-compliant metrics export response."""
 
-    partial_success: Optional[ExportMetricsPartialSuccess] = Field(
+    partial_success: ExportMetricsPartialSuccess | None = Field(
         default=None, alias="partialSuccess"
     )
 
@@ -254,17 +252,15 @@ class ExportMetricsServiceResponse(BaseModel):
 class ExportLogsServiceResponse(BaseModel):
     """OTLP-compliant logs export response."""
 
-    partial_success: Optional[ExportLogsPartialSuccess] = Field(
-        default=None, alias="partialSuccess"
-    )
+    partial_success: ExportLogsPartialSuccess | None = Field(default=None, alias="partialSuccess")
 
 
 class Status(BaseModel):
     """OTLP Status message for errors."""
 
-    code: Optional[int] = None
+    code: int | None = None
     message: str
-    details: Optional[list[dict[str, Any]]] = None
+    details: list[dict[str, Any]] | None = None
 
 
 class ErrorResponse(BaseModel):
