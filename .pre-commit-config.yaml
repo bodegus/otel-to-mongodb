@@ -15,13 +15,6 @@ repos:
       - id: debug-statements
       - id: check-docstring-first
 
-  - repo: https://github.com/psf/black
-    rev: 23.12.1
-    hooks:
-      - id: black
-        language_version: python3.12
-        args: [--line-length=100]
-
 # isort removed - using Ruff's built-in import sorting (I rules)
 
   # Temporarily disabled - requires extensive type annotation work
@@ -49,6 +42,7 @@ repos:
       - id: ruff-format
         name: ruff-format
         args: [--check]
+
 
   - repo: local
     hooks:
