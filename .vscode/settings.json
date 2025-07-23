@@ -18,19 +18,16 @@
         "editor.tabSize": 4,
         "editor.insertSpaces": true,
         "editor.formatOnSave": true,
-        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.codeActionsOnSave": {
-            "source.organizeImports": "explicit"
+            "source.organizeImports.ruff": "explicit",
+            "source.fixAll.ruff": "explicit"
         }
     },
-    // Formatter settings
-    "black-formatter.args": [
-        "--line-length=100"
-    ],
-    "flake8.args": [
-        "--max-line-length=100",
-        "--extend-ignore=E203,W503,E501"
-    ],
+    // Ruff settings (modern configuration for 2025)
+    "ruff.nativeServer": "on",
+    "ruff.showNotifications": "onError",
+    // Flake8 removed - using Ruff exclusively
     // File associations
     "files.associations": {
         "*.yml": "yaml",
@@ -47,12 +44,24 @@
         "app/tests/"
     ],
     "python.testing.unittestEnabled": false,
-    // Extensions
-    "ruff.args": [
-        "--line-length=100"
+    // Python linting priority (Ruff first, then flake8 for compatibility)
+    "python.linting.enabled": true,
+    "python.linting.ruffEnabled": true,
+    "python.linting.flake8Enabled": false, // Disabled in favor of Ruff
+    "python.linting.maxLineLength": 100,
+    "python.analysis.autoImportCompletions": true,
+    // Import sorting now handled by Ruff automatically
+    // Modern Ruff configuration (2025)
+    "ruff.importStrategy": "fromEnvironment",
+    "ruff.configurationPreference": "filesystemFirst",
+    // Pylsp settings (if using)
+    "pylsp.plugins.pycodestyle.maxLineLength": 100,
+    "pylsp.plugins.flake8.maxLineLength": 100,
+    // Flake8 extension settings (force 100 chars or disable)
+    "flake8.args": [
+        "--max-line-length=100"
     ],
-    "isort.args": [
-        "--profile=black",
-        "--line-length=100"
-    ]
+    "flake8.enabled": false,
+    // Disable deprecated extensions in favor of Ruff
+    "isort.check": false
 }

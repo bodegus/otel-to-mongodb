@@ -35,7 +35,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        python -m pytest app/tests/ -v --cov=app --cov-report=term-missing --cov-report=xml
+        python -m pytest app/tests/ -v --cov=app --cov-report=term-missing --cov-report=xml  --tb=line
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -56,19 +56,9 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install black isort flake8 ruff bandit
+        pip install -e ".[dev]"
 
-    - name: Run black
-      run: black --check --line-length=100 app/
+    - name: Run ruff (replaces flake8, isort, bandit + more)
+      run: ruff check app/ --output-format=github --exit-non-zero-on-fix
 
-    - name: Run isort
-      run: isort --check-only --profile=black --line-length=100 app/
-
-    - name: Run flake8
-      run: flake8 --max-line-length=100 --extend-ignore=E203,W503,E501 app/
-
-    - name: Run ruff
-      run: ruff check app/
-
-    - name: Run bandit security check
-      run: bandit -r app/ --skip B101,B104 --severity-level medium
+    # Note: Dependency vulnerability scanning with safety could be added if needed

@@ -1,15 +1,16 @@
 {
     "recommendations": [
         "ms-python.python",
-        "ms-python.black-formatter",
-        "ms-python.isort",
-        "ms-python.flake8",
+        "ms-python.vscode-pylance",
         "charliermarsh.ruff",
-        "ms-python.mypy-type-checker",
+        "ms-python.debugpy",
         "redhat.vscode-yaml",
         "ms-vscode.vscode-json",
-        "tamasfe.even-better-toml",
-        "gruntfuggly.todo-tree",
-        "github.vscode-pull-request-github"
+        "tamasfe.even-better-toml"
+    ],
+    "unwantedRecommendations": [
+        "ms-python.flake8",
+        "ms-python.isort",
+        "ms-python.black-formatter"
     ]
 }

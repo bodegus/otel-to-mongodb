@@ -3,7 +3,7 @@
     "configurations": [
         {
             "name": "FastAPI Dev Server",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/app/main.py",
             "console": "integratedTerminal",
@@ -16,7 +16,7 @@
         },
         {
             "name": "Run Tests",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "pytest",
             "args": [
@@ -32,7 +32,7 @@
         },
         {
             "name": "Run Tests with Coverage",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "pytest",
             "args": [

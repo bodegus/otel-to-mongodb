@@ -45,11 +45,116 @@ ENABLE_CLOUD_SYNC=true
 - `GET /health` - Basic health check
 - `GET /health/detailed` - Detailed health with database status
 
-## Docker
+## Docker Deployment
+
+### Quick Start with Docker
 
 ```bash
+# Build the image
 docker build -t otel-to-mongodb .
-docker run -p 8000:8000 -e MONGODB_URI=mongodb://host.docker.internal:27017 otel-to-mongodb
+
+# Run container (connects to MongoDB on port 27017, avoids port collisions)
+docker run -d \
+  --name otel-to-mongodb \
+  --network otel_otel-network \
+  -p 8083:8083 \
+  -e PRIMARY_MONGODB_URI=mongodb://otel-mongodb:27017/otel_db \
+  -e MONGODB_DATABASE=otel_db \
+  --restart unless-stopped \
+  otel-to-mongodb
+```
+
+### Docker Compose Setup
+
+For production deployment with MongoDB:
+
+```yaml
+version: '3.8'
+
+services:
+  otel-mongodb-api:
+    build: .
+    container_name: otel-mongodb-api
+    ports:
+      - "8083:8083"
+    environment:
+      - PRIMARY_MONGODB_URI=mongodb://mongodb:27017/otel_db
+      - MONGODB_DATABASE=otel_db
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+    networks:
+      - otel-network
+
+  mongodb:
+    image: mongo:8.0
+    container_name: otel-mongodb-new
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: otel_db
+    ports:
+      - "27018:27017"  # Different port to avoid collision
+    volumes:
+      - mongodb_api_data:/data/db
+    networks:
+      - otel-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mongodb_api_data:
+
+networks:
+  otel-network:
+    driver: bridge
+```
+
+### Connect to Existing MongoDB
+
+To use your existing MongoDB container on port 27017:
+
+```bash
+docker run -d \
+  --name otel-to-mongodb \
+  --network otel_otel-network \
+  -p 8083:8083 \
+  -e PRIMARY_MONGODB_URI=mongodb://otel-mongodb:27017/otel_db \
+  -e MONGODB_DATABASE=otel_db \
+  --restart unless-stopped \
+  otel-to-mongodb
+```
+
+### Health Check
+
+Once running, verify the service:
+
+```bash
+# Basic health check
+curl http://localhost:8083/health
+
+# Detailed health check
+curl http://localhost:8083/health/detailed
+```
+
+### Container Management
+
+```bash
+# View logs
+docker logs otel-to-mongodb
+
+# Stop container
+docker stop otel-to-mongodb
+
+# Remove container
+docker rm otel-to-mongodb
+
+# Remove image
+docker rmi otel-to-mongodb
 ```
 
 ## Project Structure
