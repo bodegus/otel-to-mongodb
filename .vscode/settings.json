@@ -18,16 +18,14 @@
         "editor.tabSize": 4,
         "editor.insertSpaces": true,
         "editor.formatOnSave": true,
-        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.codeActionsOnSave": {
             "source.organizeImports": "explicit",
             "source.fixAll.ruff": "explicit"
         }
     },
-    // Formatter settings
-    "black-formatter.args": [
-        "--line-length=100"
-    ],
+    // Ruff formatting (replaces Black)
+    "ruff.format.args": [],
     // Ruff settings (primary linter - fast and comprehensive)
     "ruff.enable": true,
     "ruff.organizeImports": true,
@@ -59,10 +57,7 @@
     "python.linting.maxLineLength": 100,
     "python.analysis.autoImportCompletions": true,
     // Import sorting now handled by Ruff automatically
-    // Ensure 100 character line length everywhere
-    "python.formatting.blackArgs": [
-        "--line-length=100"
-    ],
+    // Ruff handles all formatting (no additional args needed)
     // Pylsp settings (if using)
     "pylsp.plugins.pycodestyle.maxLineLength": 100,
     "pylsp.plugins.flake8.maxLineLength": 100,

@@ -2,7 +2,6 @@
     "recommendations": [
         "ms-python.python",
         "ms-python.vscode-pylance",
-        "ms-python.black-formatter",
         "charliermarsh.ruff",
         "ms-python.debugpy",
         "redhat.vscode-yaml",
@@ -11,6 +10,7 @@
     ],
     "unwantedRecommendations": [
         "ms-python.flake8",
-        "ms-python.isort"
+        "ms-python.isort",
+        "ms-python.black-formatter"
     ]
 }

@@ -118,9 +118,9 @@ class OTELIntegrationTestContext:
         """Verify telemetry data was written to MongoDB."""
         collection = self.get_collection(data_type)
         documents = list(collection.find({"data_type": data_type}))
-        assert (
-            len(documents) == expected_count
-        ), f"Expected {expected_count} {data_type} documents, found {len(documents)}"
+        assert len(documents) == expected_count, (
+            f"Expected {expected_count} {data_type} documents, found {len(documents)}"
+        )
         return documents
 
     async def count_documents_by_service(self, data_type: str, service_name: str) -> int:

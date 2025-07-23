@@ -5,7 +5,7 @@ These tests verify the complete pipeline from OTEL service through to MongoDB
 using real containers and direct service calls.
 """
 
-# ruff: noqa: F841  # Ignore unused variable warnings for test return values
+# Ignore unused variable warnings for test return values
 
 import pytest
 
