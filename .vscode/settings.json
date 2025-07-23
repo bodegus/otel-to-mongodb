@@ -20,19 +20,13 @@
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.codeActionsOnSave": {
-            "source.organizeImports": "explicit",
+            "source.organizeImports.ruff": "explicit",
             "source.fixAll.ruff": "explicit"
         }
     },
-    // Ruff formatting (replaces Black)
-    "ruff.format.args": [],
-    // Ruff settings (primary linter - fast and comprehensive)
-    "ruff.enable": true,
-    "ruff.organizeImports": true,
-    "ruff.fixAll": true,
-    "ruff.args": [
-        "--line-length=100"
-    ],
+    // Ruff settings (modern configuration for 2025)
+    "ruff.nativeServer": "on",
+    "ruff.showNotifications": "onError",
     // Flake8 removed - using Ruff exclusively
     // File associations
     "files.associations": {
@@ -57,7 +51,9 @@
     "python.linting.maxLineLength": 100,
     "python.analysis.autoImportCompletions": true,
     // Import sorting now handled by Ruff automatically
-    // Ruff handles all formatting (no additional args needed)
+    // Modern Ruff configuration (2025)
+    "ruff.importStrategy": "fromEnvironment",
+    "ruff.configurationPreference": "filesystemFirst",
     // Pylsp settings (if using)
     "pylsp.plugins.pycodestyle.maxLineLength": 100,
     "pylsp.plugins.flake8.maxLineLength": 100,

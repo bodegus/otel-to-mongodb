@@ -2,388 +2,338 @@
 
 ## Project Overview
 
-This project implements a production-ready Python FastAPI service that accepts OpenTelemetry (OTEL) JSON documents and writes them to multiple MongoDB instances. The service supports local MongoDB storage with optional cloud synchronization, designed for deployment in Docker containers or AWS Fargate.
+This project implements a production-ready Python FastAPI service that accepts OpenTelemetry (OTEL) JSON documents and writes them to MongoDB instances. The service supports primary/secondary MongoDB storage with automatic failover, designed for deployment in Docker containers or AWS Fargate.
 
 ### Core Requirements
-- **Simple API**: Accept JSON documents via FastAPI endpoints
-- **Multi-MongoDB**: Write to local instances with optional cloud sync
-- **Production Ready**: Comprehensive testing, error handling, observability
+- **Simple API**: Accept JSON documents via FastAPI endpoints (/v1/traces, /v1/metrics, /v1/logs)
+- **Dual MongoDB**: Write to primary and secondary MongoDB instances with graceful degradation
+- **Production Ready**: Comprehensive testing, error handling, structured logging with structlog
 - **Containerized**: Docker deployment with Fargate support
-- **Well Tested**: Extensive unit tests with MongoDB mocking, integration tests with ephemeral containers
+- **Well Tested**: Extensive unit tests with MongoDB mocking, integration tests with real containers
 
-## Reference Project Analysis
+## Current Project Status
 
-### Bridge Prototype Assessment
+### Implementation Progress
 
-#### Current State (reference/bridge/)
-
-**Strengths:**
-- Dual database architecture (local + cloud) with graceful degradation
-- Support for both JSON and protobuf OTLP formats
-- Background sync service for eventual consistency
-- Comprehensive health check endpoints
-- Good test coverage with appropriate mocking
-- Production-ready Docker configuration
+**✅ Completed Features:**
+- FastAPI application with OTLP endpoints (/v1/traces, /v1/metrics, /v1/logs)
+- Primary/secondary MongoDB architecture with graceful degradation
+- Structured logging with structlog
+- Comprehensive health check endpoints (/health, /health/detailed)
+- OTLP-compliant request/response models using Pydantic
+- Modern Python tooling with Ruff (unified linting/formatting)
+- Unit tests with mongomock integration
+- Integration tests with real MongoDB containers
+- Pre-commit hooks and CI/CD pipeline
 
 **Architecture Components:**
-- `main.py`: FastAPI application with OTLP endpoints (/v1/traces, /v1/metrics, /v1/logs)
-- `database_manager.py`: Dual MongoDB backend with failure handling and dead letter queues
-- `sync_service.py`: Background service for failed record recovery
-- Test suite with mongomock for database operations
+- `app/main.py`: FastAPI application with lifespan management and global exception handling
+- `app/mongo_client.py`: MongoDB client with primary/secondary database support
+- `app/otel_service.py`: OpenTelemetry data processing service with telemetry counting
+- `app/models.py`: Pydantic models for OTLP data structures and responses
+- `app/tests/`: Comprehensive test suite with unit and integration tests
 
-**Areas for Improvement:**
-- Missing observability (metrics, tracing, structured logging)
-- No authentication, authorization, or input validation
-- Hard-coded configuration values
-- Limited error recovery strategies
-- No rate limiting or resource controls
-- Missing integration tests with real databases
-- Basic error handling without circuit breaker patterns
+**Current Strengths:**
+- Clean separation of concerns between API, service, and database layers
+- Environment-based configuration (PRIMARY_MONGODB_URI, SECONDARY_MONGODB_URI)
+- Graceful degradation - service continues if only one database is available
+- Detailed telemetry processing with record counting and timing metrics
+- Modern Python 3.12 codebase with full type annotations
 
-#### Dependencies Used:
+**🔄 Areas for Enhancement:**
+- Authentication and authorization mechanisms
+- Rate limiting and request throttling
+- OpenTelemetry instrumentation for self-monitoring
+- Circuit breaker pattern for database connectivity
+- Dead letter queue for failed writes
+- Background sync service for consistency recovery
+- Performance optimization and caching strategies
+
+### Current Technology Stack
+
+**Core Dependencies:**
 ```
-fastapi==0.104.1
-uvicorn==0.24.0
-pymongo==4.6.0
-motor==3.3.2
-pydantic==2.5.0
-opentelemetry-proto==1.20.0
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-mock==3.12.0
-```
-
-### Good Python Project Patterns (Target Standards)
-
-#### Project Structure:
-```
-app/
-├── subgraphs/                     # Modular components
-│   ├── base/                      # Core framework
-│   │   ├── litellm_component.py   # Primary base class
-│   │   ├── state.py              # BaseState with annotations
-│   │   ├── mongodb_manager.py    # Connection management
-│   │   └── prompt_manager.py     # Template management
-│   └── production_components/     # Feature implementations
-├── tests/                        # Comprehensive testing
-│   ├── fixtures/                 # MongoDB and test data
-│   │   ├── mongodb_fixtures.py   # Database test utilities
-│   │   └── prompt_seeds.py       # Test data generation
-│   ├── subgraphs/               # Component-specific tests
-│   └── conftest.py              # Global test configuration
-└── utils/                        # Helper utilities
-```
-
-#### Key Patterns and Standards:
-
-**Build System (pyproject.toml):**
-- Modern setuptools with PEP 621 metadata
-- Python 3.12 requirement
-- Comprehensive dependency management with pinned versions
-- Tool configuration integration (Black, isort, mypy, flake8, pytest)
-- Coverage configuration with source path specification
-
-**MongoDB Testing Strategy:**
-- Dual MongoDB setup: Test MongoDB (port 27018) with Atlas Local for features
-- Automatic test isolation with worker-aware database namespacing
-- Comprehensive fixtures: `mongodb_test_db`, `mongodb_collections`, `seeded_mongodb_collections`
-- Atlas Local container for advanced MongoDB features (search/vector)
-- Cleanup automation with `--keep-db` flag for debugging
-
-**Connection Management:**
-- Singleton `MongoDBManager` class with thread-safe implementation
-- Auto-configuration via environment variables (`MONGODB_URI`, `MONGODB_DATABASE`)
-- Connection pooling with configured timeouts
-- Health monitoring with automatic reconnection
-- Retry logic with exponential backoff (`@mongodb_retry` decorator)
-
-**Testing Architecture:**
-- Marker-based organization: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.requires_mongodb`
-- Parallel execution with `-n auto` for performance
-- Mock strategies: Auto-mocking for unit tests, dependency injection for integration
-- 3A pattern: Arrange, Act, Assert structure
-- Naming convention: `test_<method>_<condition>_<expected>`
-
-**Development Tools:**
-- Pre-commit hooks with Black (line length 100), isort, flake8
-- Type checking with mypy strict settings
-- Automated unit testing on every commit
-- Virtual environment mandatory for all operations
-
-**Code Quality Standards:**
-- 100-character line length across all tools
-- Modern Python 3.12 features
-- Comprehensive type annotations
-- Structured logging and observability
-- Environment-based configuration
-
-## Major Epic Specifications
-
-### Epic 1: Bootstrap Project Setup
-
-**Objective:** Create a modern Python development environment following established patterns
-
-**Acceptance Criteria:**
-- [ ] `pyproject.toml` with modern build system configuration
-- [ ] `.python-version` file specifying Python 3.12
-- [ ] Virtual environment setup with `requirements.txt` and `constraints.txt`
-- [ ] Pre-commit hooks configured (Black, isort, flake8, mypy)
-- [ ] VS Code workspace configuration with Python debugging
-- [ ] Directory structure following good patterns (`app/`, `tests/`, `utils/`)
-- [ ] Basic `.gitignore` for Python projects
-- [ ] `conftest.py` with MongoDB testing fixtures
-- [ ] CI/CD foundation (GitHub Actions or equivalent)
-
-**Key Dependencies:**
-```
-# Core API
+# API Framework
 fastapi>=0.104.0
-uvicorn>=0.24.0
+uvicorn[standard]>=0.24.0
 pydantic>=2.5.0
+pydantic-settings>=2.1.0
 
 # Database
 pymongo>=4.6.0
 motor>=3.3.0
 
+# Observability
+opentelemetry-api>=1.21.0
+opentelemetry-sdk>=1.21.0
+structlog>=23.2.0
+
+# Utilities
+tenacity>=8.2.0  # For retry logic
+python-json-logger>=2.0.0
+```
+
+**Development Tools:**
+```
 # Testing
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 pytest-mock>=3.12.0
-pytest-xdist>=3.0.0  # For parallel testing
+pytest-xdist>=3.0.0  # Parallel testing
 mongomock>=4.1.0
 
-# Development Tools
-black>=23.0.0
-isort>=5.12.0
-flake8>=6.0.0
+# Code Quality (Modern Unified Tooling)
+ruff>=0.1.8  # Replaces black, isort, flake8, bandit
 mypy>=1.7.0
 pre-commit>=3.5.0
 ```
 
-**Tool Configurations:**
-- Black: 100-character line length
-- isort: Black profile compatibility
-- flake8: Ignore E203, W503 for Black compatibility
-- mypy: Strict type checking enabled
-- pytest: Parallel execution with `-n auto`
+## Current Project Structure
 
-### Epic 2: Copy and Refactor Original API
-
-**Objective:** Modernize the bridge prototype following good Python patterns
-
-**Acceptance Criteria:**
-- [ ] FastAPI application structure in `app/api/` directory
-- [ ] Pydantic models for all request/response schemas
-- [ ] Environment-based configuration (no hardcoded values)
-- [ ] Proper error handling with custom exception classes
-- [ ] Structured logging throughout the application
-- [ ] OpenTelemetry integration for observability
-- [ ] Health check endpoints with detailed status
-- [ ] API documentation with OpenAPI/Swagger
-- [ ] Input validation and sanitization
-- [ ] Rate limiting and basic security measures
-
-**API Structure:**
+**Actual Implementation Structure:**
 ```
-app/
-├── api/
+otel-to-mongodb/
+├── app/                          # Main application code
 │   ├── __init__.py
-│   ├── main.py              # FastAPI application
-│   ├── endpoints/
-│   │   ├── __init__.py
-│   │   ├── health.py        # Health check endpoints
-│   │   ├── telemetry.py     # OTEL data endpoints
-│   │   └── admin.py         # Administrative endpoints
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── requests.py      # Request schemas
-│   │   ├── responses.py     # Response schemas
-│   │   └── telemetry.py     # OTEL data models
-│   └── middleware/
+│   ├── main.py                   # FastAPI application entry point
+│   ├── models.py                 # Pydantic models for OTLP data
+│   ├── mongo_client.py           # MongoDB client with primary/secondary support
+│   ├── otel_service.py           # OpenTelemetry data processing service
+│   └── tests/                    # Test suite
 │       ├── __init__.py
-│       ├── logging.py       # Request logging
-│       ├── error_handler.py # Global error handling
-│       └── rate_limiting.py # Rate limiting
-├── core/
-│   ├── __init__.py
-│   ├── config.py           # Environment configuration
-│   ├── database.py         # MongoDB manager
-│   ├── exceptions.py       # Custom exceptions
-│   └── sync_service.py     # Background sync
-└── utils/
-    ├── __init__.py
-    ├── logging.py          # Logging utilities
-    └── retry.py            # Retry decorators
+│       ├── conftest.py           # Global test configuration
+│       ├── fixtures/             # Test data and utilities
+│       │   ├── __init__.py
+│       │   └── otel_data.py      # OTEL test data fixtures
+│       ├── integration/          # Integration tests
+│       │   ├── __init__.py
+│       │   ├── conftest.py       # Integration test config
+│       │   ├── fixtures.py       # MongoDB container fixtures
+│       │   └── test_integration.py # End-to-end tests
+│       ├── test_main.py          # FastAPI endpoint tests
+│       ├── test_mongo_client.py  # MongoDB client unit tests
+│       └── test_otel_service.py  # OTEL service unit tests
+├── pyproject.toml                # Modern Python project configuration
+├── Dockerfile                    # Container configuration
+├── .pre-commit-config.yaml       # Pre-commit hooks with Ruff
+├── .vscode/                      # VS Code workspace settings
+│   ├── settings.json
+│   └── extensions.json
+└── .github/workflows/            # CI/CD pipeline
+    └── ci.yml
 ```
 
-**Key Improvements from Prototype:**
-- Replace hardcoded values with environment configuration
-- Add comprehensive input validation with Pydantic
-- Implement structured logging with correlation IDs
-- Add OpenTelemetry tracing to all operations
-- Create custom exception hierarchy for better error handling
-- Implement circuit breaker pattern for cloud connectivity
-- Add rate limiting to prevent abuse
-- Include API versioning strategy
+## Implementation Standards and Patterns
 
-### Epic 3: Comprehensive Unit Test Suite
+**Modern Build System (pyproject.toml):**
+- PEP 621 compliant project metadata
+- Python 3.12 requirement with modern features
+- Unified tooling configuration (Ruff, mypy, pytest)
+- Optional dependencies for development vs. production
+- Script entry points for CLI tools
+
+**Database Architecture:**
+- Primary/secondary MongoDB client pattern with `MongoDBClient` class
+- Environment-based configuration: `PRIMARY_MONGODB_URI`, `SECONDARY_MONGODB_URI`
+- Graceful degradation - continues operation with single database
+- Connection health monitoring with automatic failover
+- Structured logging for all database operations
+
+**Testing Strategy:**
+- **Unit Tests**: Full MongoDB mocking with mongomock
+- **Integration Tests**: Real MongoDB containers with Docker
+- **Test Markers**: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.requires_mongodb`
+- **Parallel Execution**: `pytest -n auto` for performance
+- **Fixtures**: Centralized in `app/tests/fixtures/` with reusable OTEL data
+
+**Modern Development Tooling:**
+- **Ruff**: Unified linting, formatting, and import sorting (replaces Black + isort + flake8 + bandit)
+- **MyPy**: Strict type checking with comprehensive annotations
+- **Pre-commit**: Automated code quality checks on every commit
+- **VS Code**: Configured workspace with Ruff integration and Python debugging
+
+**Code Quality Standards:**
+- 100-character line length consistently applied
+- Comprehensive type annotations using Python 3.12 syntax
+- Structured logging with structlog for JSON output
+- Environment-driven configuration with sensible defaults
+- Clean separation of concerns (API → Service → Database)
+
+## Development Roadmap
+
+### ✅ Epic 1: Bootstrap Project Setup (COMPLETED)
+
+**Objective:** Create a modern Python development environment following established patterns
+
+**✅ Completed Acceptance Criteria:**
+- [x] `pyproject.toml` with modern build system configuration and PEP 621 metadata
+- [x] Python 3.12 requirement with modern language features
+- [x] Virtual environment setup with optional dev dependencies
+- [x] Pre-commit hooks configured with Ruff (unified tooling)
+- [x] VS Code workspace configuration with Ruff integration and Python debugging
+- [x] Clean directory structure (`app/`, `app/tests/`)
+- [x] Modern `.gitignore` for Python projects
+- [x] `conftest.py` with MongoDB testing fixtures and Docker integration
+- [x] CI/CD pipeline with GitHub Actions
+
+**✅ Modern Technology Stack:**
+- **Unified Tooling**: Ruff replaced Black + isort + flake8 + bandit for performance and consistency
+- **Containerized Testing**: Docker integration for real MongoDB integration tests
+- **Structured Logging**: structlog with JSON output for production observability
+- **Type Safety**: Comprehensive mypy configuration with Python 3.12 features
+
+### ✅ Epic 2: Core API Implementation (COMPLETED)
+
+**Objective:** Implement production-ready OTLP API with modern Python patterns
+
+**✅ Completed Acceptance Criteria:**
+- [x] FastAPI application with clean architecture in `app/main.py`
+- [x] Comprehensive Pydantic models for OTLP request/response schemas in `app/models.py`
+- [x] Environment-based configuration (PRIMARY_MONGODB_URI, SECONDARY_MONGODB_URI)
+- [x] Global exception handling with structured error responses
+- [x] Structured logging with structlog throughout the application
+- [x] Health check endpoints (/health, /health/detailed) with database status
+- [x] Auto-generated API documentation with OpenAPI/Swagger
+- [x] Comprehensive input validation through Pydantic models
+- [x] OTLP-compliant endpoint responses
+
+**✅ Implemented Architecture:**
+- **Clean Separation**: API layer (`main.py`) → Service layer (`otel_service.py`) → Database layer (`mongo_client.py`)
+- **OTLP Compliance**: Full support for OpenTelemetry JSON protocol with proper response formats
+- **Dual Database Support**: Primary/secondary MongoDB with graceful degradation
+- **Production Logging**: Structured JSON logs with correlation and timing metrics
+- **Health Monitoring**: Basic and detailed health checks with database connection status
+
+**🔄 Remaining Enhancements:**
+- [ ] Authentication and authorization mechanisms
+- [ ] Rate limiting and request throttling
+- [ ] OpenTelemetry self-instrumentation
+- [ ] Circuit breaker pattern for database resilience
+- [ ] Custom exception hierarchy with specific error types
+- [ ] API versioning strategy for future changes
+
+### ✅ Epic 3: Comprehensive Unit Test Suite (COMPLETED)
 
 **Objective:** Create thorough unit tests with full MongoDB mocking following established patterns
 
-**Acceptance Criteria:**
-- [ ] 95%+ code coverage across all modules
-- [ ] MongoDB operations fully mocked using mongomock
-- [ ] Parametrized tests for multiple input scenarios
-- [ ] Exception path testing with proper error conditions
-- [ ] FastAPI test client integration for endpoint testing
-- [ ] Mock strategies for external dependencies
-- [ ] Test fixtures for common data scenarios
-- [ ] Performance benchmarks for critical paths
-- [ ] Parallel test execution with worker isolation
-- [ ] Comprehensive API endpoint testing (happy path and error cases)
+**✅ Completed Acceptance Criteria:**
+- [x] Comprehensive unit tests for all modules (main, mongo_client, otel_service)
+- [x] MongoDB operations fully mocked using mongomock
+- [x] Parametrized tests for different OTEL data scenarios
+- [x] Exception path testing with connection failures and database errors
+- [x] FastAPI test client integration for all endpoint testing
+- [x] Mock strategies with proper dependency injection
+- [x] Centralized test fixtures in `app/tests/fixtures/otel_data.py`
+- [x] Parallel test execution with `pytest -n auto`
+- [x] Comprehensive API endpoint testing (success and error cases)
 
-**Test Structure:**
+**✅ Implemented Test Architecture:**
 ```
-tests/
-├── unit/
-│   ├── __init__.py
-│   ├── api/
-│   │   ├── test_endpoints.py      # API endpoint unit tests
-│   │   ├── test_middleware.py     # Middleware unit tests
-│   │   └── test_models.py         # Pydantic model tests
-│   ├── core/
-│   │   ├── test_database.py       # Database manager tests
-│   │   ├── test_config.py         # Configuration tests
-│   │   └── test_sync_service.py   # Sync service tests
-│   └── utils/
-│       ├── test_logging.py        # Logging utility tests
-│       └── test_retry.py          # Retry decorator tests
+app/tests/
+├── __init__.py
+├── conftest.py                     # Global test configuration with mongomock
 ├── fixtures/
 │   ├── __init__.py
-│   ├── mongodb_fixtures.py        # MongoDB test utilities
-│   ├── api_fixtures.py            # API test data
-│   └── telemetry_fixtures.py      # OTEL test data
-├── conftest.py                     # Global test configuration
-└── test_template.py               # Test template for consistency
+│   └── otel_data.py               # Comprehensive OTEL test data fixtures
+├── integration/                    # Real MongoDB container tests
+│   ├── __init__.py
+│   ├── conftest.py                # Docker MongoDB fixtures
+│   ├── fixtures.py                # Container management utilities
+│   └── test_integration.py        # End-to-end integration tests
+├── test_main.py                   # FastAPI endpoint unit tests
+├── test_mongo_client.py           # MongoDB client unit tests
+└── test_otel_service.py           # OTEL service unit tests
 ```
 
-**MongoDB Mocking Strategy:**
-- Use mongomock for all database operations in unit tests
-- Create comprehensive fixtures for different data scenarios
-- Mock connection failures and retry scenarios
-- Test dead letter queue operations
-- Validate sync metadata handling
-- Test batch operations and pagination
+**✅ Implemented Testing Patterns:**
+- **Mongomock Integration**: All MongoDB operations mocked for fast unit tests
+- **Fixture Strategy**: Reusable OTEL data fixtures for traces, metrics, and logs
+- **Connection Testing**: Mock database failures and recovery scenarios
+- **Parametrized Tests**: Multiple data scenarios with `@pytest.mark.parametrize`
+- **Fast Execution**: Unit tests run in under 10 seconds with parallel execution
+- **Comprehensive Coverage**: All API endpoints, service methods, and database operations tested
 
-**Key Testing Patterns:**
-- 3A pattern: Arrange, Act, Assert
-- Descriptive test names: `test_<method>_<condition>_<expected>`
-- Parametrized testing for multiple input scenarios
-- Exception testing with `pytest.raises`
-- Mock verification for external calls
-- Fixture reuse for common setup
+### ✅ Epic 4: Integration Test Suite (COMPLETED)
 
-### Epic 4: Integration Test Suite with Ephemeral MongoDB
+**Objective:** Create standalone integration tests using real MongoDB containers
 
-**Objective:** Create standalone integration tests using ephemeral MongoDB Atlas container
+**✅ Completed Acceptance Criteria:**
+- [x] Docker-based MongoDB container for testing with automatic lifecycle management
+- [x] End-to-end API testing with real MongoDB operations and data persistence
+- [x] Primary/secondary database scenario testing with failover validation
+- [x] Service integration testing with actual OTEL data processing
+- [x] Container lifecycle management in tests with proper cleanup
+- [x] Data persistence validation across test scenarios
+- [x] Test data isolation with unique database instances per test
+- [x] Automated container setup and teardown
 
-**Acceptance Criteria:**
-- [ ] Docker-based MongoDB Atlas Local container for testing
-- [ ] End-to-end API testing with real MongoDB operations
-- [ ] Multi-database scenario testing (local + cloud)
-- [ ] Sync service integration testing
-- [ ] Performance testing under load
-- [ ] Container lifecycle management in tests
-- [ ] Data persistence validation across restarts
+**✅ Implemented Integration Testing:**
+- **Docker Integration**: MongoDB containers managed through pytest fixtures
+- **Real Data Flow**: Complete OTEL data processing from API to database storage
+- **Database Validation**: Verify actual document insertion and retrieval
+- **Primary/Secondary Testing**: Test failover scenarios with database connection failures
+- **Performance Validation**: Test processing times and resource usage
+- **Clean Isolation**: Each test uses fresh database instances with proper cleanup
+
+**🔄 Future Enhancements for Integration Testing:**
+- [ ] Load testing with concurrent requests and high throughput scenarios
+- [ ] Memory usage monitoring during batch operations
 - [ ] Network failure simulation and recovery testing
-- [ ] Memory and resource usage monitoring
-- [ ] Test data cleanup and isolation
+- [ ] Performance benchmarking with SLA validation
+- [ ] Multi-container scenarios for distributed testing
 
-**Integration Test Structure:**
-```
-tests/
-├── integration/
-│   ├── __init__.py
-│   ├── test_api_integration.py     # End-to-end API tests
-│   ├── test_database_integration.py # Real MongoDB operations
-│   ├── test_sync_integration.py    # Multi-database sync testing
-│   ├── test_performance.py         # Load and performance tests
-│   └── test_resilience.py          # Failure recovery tests
-├── containers/
-│   ├── __init__.py
-│   ├── mongodb_container.py        # Container management
-│   └── docker-compose.test.yml     # Test infrastructure
-└── data/
-    ├── sample_traces.json          # Test OTEL data
-    ├── sample_metrics.json
-    └── sample_logs.json
-```
+## Development Workflow
 
-**Container Strategy:**
-- MongoDB Atlas Local container with authentication
-- Separate test databases for parallel execution
-- Automatic container cleanup after tests
-- Health check validation before test execution
-- Volume mounting for test data injection
-- Network isolation for security testing
-
-**Performance Testing:**
-- Load testing with concurrent requests
-- Memory usage monitoring during batch operations
-- Database connection pool validation
-- Sync service performance under load
-- Rate limiting effectiveness testing
-
-## Technical Implementation Standards
-
-### Code Organization Principles
-
-**Module Structure:**
-- Single responsibility per module
-- Clear separation of concerns (API, core, utils)
-- Dependency injection for testability
-- Interface-based design for swappable components
-
-**Error Handling:**
-- Custom exception hierarchy with specific error types
-- Global exception handling with structured logging
-- Graceful degradation for non-critical failures
-- Circuit breaker pattern for external dependencies
-
-**Configuration Management:**
-- Environment-based configuration with `.env` support
-- Type-safe configuration with Pydantic models
-- Secret management for sensitive values
-- Default values for development convenience
-
-### Development Workflow
-
-**Required Commands:**
+### Environment Setup
 ```bash
-# Environment setup
+# Python 3.12 environment
 python -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
 
-# Development
+# Install dependencies
+pip install -e .[dev]
+
+# Setup pre-commit hooks
 pre-commit install
-pre-commit run --all-files
+```
+
+### Development Commands
+```bash
+# Code Quality (Unified with Ruff)
+ruff check app/ --fix              # Linting with auto-fix
+ruff format app/                   # Code formatting
+mypy app/                          # Type checking
 
 # Testing
 pytest -n auto                    # Parallel unit tests
 pytest -m integration            # Integration tests only
 pytest --cov=app --cov-report=html  # Coverage report
 
-# Quality checks
-black app/ tests/
-isort app/ tests/
-flake8 app/ tests/
-mypy app/
+# Pre-commit (runs automatically on commit)
+pre-commit run --all-files         # Manual run
 
-# Local development
-uvicorn app.api.main:app --reload --port 8000
+# Local development server
+uvicorn app.main:app --reload --port 8000
 ```
+
+### Current Implementation Principles
+
+**✅ Module Architecture:**
+- **Clean Separation**: `main.py` (API) → `otel_service.py` (Business Logic) → `mongo_client.py` (Data Layer)
+- **Single Responsibility**: Each module has a focused purpose
+- **Dependency Injection**: Services receive dependencies via constructors
+- **Type Safety**: Comprehensive type annotations throughout
+
+**✅ Error Handling:**
+- **Global Exception Handler**: Catches all unhandled exceptions with structured logging
+- **Graceful Degradation**: Service continues with partial database connectivity
+- **OTLP Compliance**: Error responses follow OpenTelemetry protocol standards
+- **Structured Logging**: All errors logged with context and correlation IDs
+
+**✅ Configuration Management:**
+- **Environment Variables**: `PRIMARY_MONGODB_URI`, `SECONDARY_MONGODB_URI`, `MONGODB_DATABASE`
+- **Sensible Defaults**: Development-friendly defaults for optional configuration
+- **No Hardcoded Values**: All configuration externalized
 
 **Git Workflow:**
 - Feature branches with descriptive names
