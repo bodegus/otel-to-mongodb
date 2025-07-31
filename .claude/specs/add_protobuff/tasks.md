@@ -62,7 +62,7 @@ This implementation adds Protocol Buffer support to the existing JSON-only OpenT
   - _Leverage: app/tests/test_main.py existing HTTP testing patterns, FastAPI test client_
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 7.1_
 
-- [ ] 8. Update main endpoint tests for dual content-type support
+- [x] 8. Update main endpoint tests for dual content-type support
   - Modify `app/tests/test_main.py` to test both JSON and protobuf requests
   - Add protobuf-specific test cases for all three endpoints (/v1/traces, /v1/metrics, /v1/logs)
   - Test HTTP 415 responses for unsupported content types

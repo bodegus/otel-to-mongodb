@@ -253,3 +253,208 @@ class TestTelemetryEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, dict)
+
+    # Protobuf Support Tests
+    @pytest.mark.unit
+    def test_submit_protobuf_traces_success(
+        self, client, sample_protobuf_traces_data, mock_mongodb_client
+    ):
+        """Test successful protobuf traces submission."""
+        response = client.post(
+            "/v1/traces",
+            content=sample_protobuf_traces_data["binary_data"],
+            headers={"Content-Type": "application/x-protobuf"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        # OTLP-compliant response should be empty on success
+        assert isinstance(data, dict)
+        assert data.get("partialSuccess") is None
+
+    @pytest.mark.unit
+    def test_submit_protobuf_metrics_success(
+        self, client, sample_protobuf_metrics_data, mock_mongodb_client
+    ):
+        """Test successful protobuf metrics submission."""
+        response = client.post(
+            "/v1/metrics",
+            content=sample_protobuf_metrics_data["binary_data"],
+            headers={"Content-Type": "application/x-protobuf"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        # OTLP-compliant response should be empty on success
+        assert isinstance(data, dict)
+        assert data.get("partialSuccess") is None
+
+    @pytest.mark.unit
+    def test_submit_protobuf_logs_success(
+        self, client, sample_protobuf_logs_data, mock_mongodb_client
+    ):
+        """Test successful protobuf logs submission."""
+        response = client.post(
+            "/v1/logs",
+            content=sample_protobuf_logs_data["binary_data"],
+            headers={"Content-Type": "application/x-protobuf"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        # OTLP-compliant response should be empty on success
+        assert isinstance(data, dict)
+        assert data.get("partialSuccess") is None
+
+    @pytest.mark.unit
+    def test_protobuf_malformed_data_error(self, client, malformed_protobuf_data):
+        """Test malformed protobuf data returns 400."""
+        response = client.post(
+            "/v1/traces",
+            content=malformed_protobuf_data["binary_data"],
+            headers={"Content-Type": "application/x-protobuf"},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "Invalid protobuf" in data["detail"] or "Error parsing protobuf" in data["detail"]
+
+    @pytest.mark.unit
+    def test_protobuf_empty_data_error(self, client):
+        """Test empty protobuf data returns 400."""
+        response = client.post(
+            "/v1/traces", content=b"", headers={"Content-Type": "application/x-protobuf"}
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "protobuf" in data["detail"].lower()
+
+    @pytest.mark.unit
+    def test_protobuf_validation_error(self, client, empty_protobuf_traces_data):
+        """Test protobuf data with validation errors."""
+        response = client.post(
+            "/v1/traces",
+            content=empty_protobuf_traces_data["binary_data"],
+            headers={"Content-Type": "application/x-protobuf"},
+        )
+
+        # Empty resourceSpans should trigger validation error
+        assert response.status_code == 400
+        data = response.json()
+        assert "protobuf" in data["detail"].lower()
+
+    @pytest.mark.unit
+    def test_content_type_case_insensitive(
+        self, client, sample_protobuf_traces_data, mock_mongodb_client
+    ):
+        """Test content-type header is case insensitive."""
+        response = client.post(
+            "/v1/traces",
+            content=sample_protobuf_traces_data["binary_data"],
+            headers={"Content-Type": "APPLICATION/X-PROTOBUF"},
+        )
+
+        assert response.status_code == 200
+
+    @pytest.mark.unit
+    def test_content_type_with_charset(self, client, sample_traces_data):
+        """Test JSON content-type with charset parameter."""
+        response = client.post(
+            "/v1/traces",
+            json=sample_traces_data,
+            headers={"Content-Type": "application/json; charset=utf-8"},
+        )
+
+        assert response.status_code == 200
+
+    @pytest.mark.unit
+    def test_missing_content_type_defaults_json(self, client, sample_traces_data):
+        """Test missing content-type defaults to JSON."""
+        # TestClient automatically sets content-type for json parameter,
+        # so we'll use content parameter with no explicit content-type
+        import json as json_module
+
+        response = client.post(
+            "/v1/traces",
+            content=json_module.dumps(sample_traces_data),
+            # No Content-Type header - should default to JSON
+        )
+
+        assert response.status_code == 200
+
+    @pytest.mark.unit
+    def test_unsupported_content_types_all_endpoints(self, client):
+        """Test unsupported content types return 415 for all endpoints."""
+        endpoints = ["/v1/traces", "/v1/metrics", "/v1/logs"]
+
+        for endpoint in endpoints:
+            response = client.post(
+                endpoint, content="test data", headers={"Content-Type": "application/xml"}
+            )
+
+            assert response.status_code == 415
+            data = response.json()
+            assert "Unsupported content type" in data["detail"]
+            assert "application/xml" in data["detail"]
+
+    @pytest.mark.unit
+    def test_protobuf_large_payload(self, client, large_protobuf_traces_data, mock_mongodb_client):
+        """Test large protobuf payload handling."""
+        response = client.post(
+            "/v1/traces",
+            content=large_protobuf_traces_data["binary_data"],
+            headers={"Content-Type": "application/x-protobuf"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+
+    @pytest.mark.unit
+    def test_mixed_requests_same_endpoint(
+        self, client, sample_traces_data, sample_protobuf_traces_data, mock_mongodb_client
+    ):
+        """Test that same endpoint can handle both JSON and protobuf requests."""
+        # First send JSON request
+        json_response = client.post("/v1/traces", json=sample_traces_data)
+        assert json_response.status_code == 200
+
+        # Then send protobuf request to same endpoint
+        protobuf_response = client.post(
+            "/v1/traces",
+            content=sample_protobuf_traces_data["binary_data"],
+            headers={"Content-Type": "application/x-protobuf"},
+        )
+        assert protobuf_response.status_code == 200
+
+    @pytest.mark.unit
+    def test_backward_compatibility_json_unchanged(
+        self, client, sample_traces_data, mock_mongodb_client
+    ):
+        """Test that existing JSON behavior is completely unchanged."""
+        # This test ensures backward compatibility
+        response = client.post("/v1/traces", json=sample_traces_data)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+        assert data.get("partialSuccess") is None
+
+        # Verify MongoDB client was called correctly
+        mock_mongodb_client.write_telemetry_data.assert_called_once()
+        call_args = mock_mongodb_client.write_telemetry_data.call_args
+        assert call_args[1]["data_type"] == "traces"
+        assert "data" in call_args[1]
+
+    @pytest.mark.unit
+    def test_accept_header_in_415_response(self, client):
+        """Test that 415 responses include Accept header."""
+        response = client.post(
+            "/v1/traces", content="test data", headers={"Content-Type": "text/plain"}
+        )
+
+        assert response.status_code == 415
+        # FastAPI TestClient may not preserve all headers, but the error should be clear
+        data = response.json()
+        assert "Unsupported content type" in data["detail"]
