@@ -41,6 +41,7 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.42b0",
     "opentelemetry-instrumentation-pymongo>=0.42b0",
     "opentelemetry-exporter-otlp>=1.21.0",
+    "opentelemetry-proto>=1.25.0",
 
     # Utilities
     "structlog>=23.2.0",
