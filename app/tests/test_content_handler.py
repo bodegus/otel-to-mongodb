@@ -8,6 +8,7 @@ from fastapi import HTTPException, Request
 
 from app.content_handler import ContentTypeHandler
 from app.models import OTELLogsData, OTELMetricsData, OTELTracesData
+from app.protobuf_parser import ProtobufParsingError
 
 
 class TestContentTypeHandler:
@@ -230,34 +231,30 @@ class TestContentTypeHandler:
         assert "Invalid JSON data" in exc_info.value.detail
 
     async def test_protobuf_parsing_error_returns_400(self):
-        """Test protobuf parsing error returns HTTP 400."""
+        """Test protobuf parsing error propagates ProtobufParsingError for custom handler."""
         # Arrange
         request = Mock(spec=Request)
         request.headers = {"content-type": "application/x-protobuf"}
         request.body = AsyncMock(return_value=b"invalid_protobuf_data")
 
-        # Act & Assert
-        with pytest.raises(HTTPException) as exc_info:
+        # Act & Assert - Now expects ProtobufParsingError to propagate
+        with pytest.raises(ProtobufParsingError) as exc_info:
             await self.handler.parse_request_data(request, "traces")
 
-        assert exc_info.value.status_code == 400
-        assert (
-            "Invalid protobuf" in exc_info.value.detail
-            or "Error parsing protobuf" in exc_info.value.detail
-        )
+        assert "Invalid protobuf" in str(exc_info.value)
 
     async def test_protobuf_empty_data_error(self):
-        """Test protobuf empty data returns HTTP 400."""
+        """Test protobuf empty data propagates ProtobufParsingError for custom handler."""
         # Arrange
         request = Mock(spec=Request)
         request.headers = {"content-type": "application/x-protobuf"}
         request.body = AsyncMock(return_value=b"")
 
-        # Act & Assert
-        with pytest.raises(HTTPException) as exc_info:
+        # Act & Assert - Now expects ProtobufParsingError to propagate
+        with pytest.raises(ProtobufParsingError) as exc_info:
             await self.handler.parse_request_data(request, "traces")
 
-        assert exc_info.value.status_code == 400
+        assert "Empty protobuf data" in str(exc_info.value)
 
     async def test_protobuf_unexpected_error_returns_400(self):
         """Test unexpected protobuf parsing error returns HTTP 400."""

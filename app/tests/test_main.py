@@ -317,7 +317,9 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 400
         data = response.json()
-        assert "Invalid protobuf" in data["detail"] or "Error parsing protobuf" in data["detail"]
+        # Now using OTLP Status format with "message" field
+        assert "message" in data
+        assert "Invalid protobuf" in data["message"] or "Error parsing protobuf" in data["message"]
 
     @pytest.mark.unit
     def test_protobuf_empty_data_error(self, client):
@@ -328,7 +330,9 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 400
         data = response.json()
-        assert "protobuf" in data["detail"].lower()
+        # Now using OTLP Status format with "message" field
+        assert "message" in data
+        assert "protobuf" in data["message"].lower()
 
     @pytest.mark.unit
     def test_protobuf_validation_error(self, client, empty_protobuf_traces_data):
@@ -342,7 +346,9 @@ class TestTelemetryEndpoints:
         # Empty resourceSpans should trigger validation error
         assert response.status_code == 400
         data = response.json()
-        assert "protobuf" in data["detail"].lower()
+        # Now using OTLP Status format with "message" field
+        assert "message" in data
+        assert "protobuf" in data["message"].lower()
 
     @pytest.mark.unit
     def test_content_type_case_insensitive(

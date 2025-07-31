@@ -34,19 +34,19 @@ class ContentTypeHandler:
 
         if content_type == "application/json":
             return await self._parse_json_data(request, data_type)
-        elif content_type == "application/x-protobuf":
+        if content_type == "application/x-protobuf":
             return await self._parse_protobuf_data(request, data_type)
-        else:
-            # HTTP 415 Unsupported Media Type
-            error_msg = f"Unsupported content type: {content_type}. Supported types: application/json, application/x-protobuf"
-            logger.warning(
-                "Unsupported content type", content_type=content_type, data_type=data_type
-            )
-            raise HTTPException(
-                status_code=415,
-                detail=error_msg,
-                headers={"Accept": "application/json, application/x-protobuf"},
-            )
+        # HTTP 415 Unsupported Media Type
+        error_msg = (
+            f"Unsupported content type: {content_type}. "
+            "Supported types: application/json, application/x-protobuf"
+        )
+        logger.warning("Unsupported content type", content_type=content_type, data_type=data_type)
+        raise HTTPException(
+            status_code=415,
+            detail=error_msg,
+            headers={"Accept": "application/json, application/x-protobuf"},
+        )
 
     def _get_content_type(self, request: Request) -> str:
         """Extract and normalize content type from request headers."""
@@ -79,12 +79,11 @@ class ContentTypeHandler:
             # Convert to appropriate Pydantic model based on data type
             if data_type == "traces":
                 return OTELTracesData(**json_data)
-            elif data_type == "metrics":
+            if data_type == "metrics":
                 return OTELMetricsData(**json_data)
-            elif data_type == "logs":
+            if data_type == "logs":
                 return OTELLogsData(**json_data)
-            else:
-                raise ValueError(f"Unknown data type: {data_type}")
+            raise ValueError(f"Unknown data type: {data_type}")
 
         except ValidationError as e:
             logger.error("JSON validation failed", error=str(e), data_type=data_type)
@@ -111,7 +110,7 @@ class ContentTypeHandler:
             # JSON decode errors should be 422 to match FastAPI behavior
             raise HTTPException(
                 status_code=422,
-                detail=f"Invalid JSON: {str(e)}",
+                detail=f"Invalid JSON: {e!s}",
             ) from e
         except Exception as e:
             logger.error(
@@ -119,7 +118,7 @@ class ContentTypeHandler:
             )
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid JSON data: {str(e)}",
+                detail=f"Invalid JSON data: {e!s}",
             ) from e
 
     async def _parse_protobuf_data(
@@ -138,19 +137,16 @@ class ContentTypeHandler:
             # Parse based on data type
             if data_type == "traces":
                 return self.protobuf_parser.parse_traces(raw_data)
-            elif data_type == "metrics":
+            if data_type == "metrics":
                 return self.protobuf_parser.parse_metrics(raw_data)
-            elif data_type == "logs":
+            if data_type == "logs":
                 return self.protobuf_parser.parse_logs(raw_data)
-            else:
-                raise ValueError(f"Unknown data type: {data_type}")
+            raise ValueError(f"Unknown data type: {data_type}")
 
         except ProtobufParsingError as e:
             logger.error("Protobuf parsing failed", error=str(e), data_type=data_type)
-            raise HTTPException(
-                status_code=400,
-                detail=str(e),
-            ) from e
+            # Re-raise ProtobufParsingError to be caught by the custom exception handler
+            raise
         except Exception as e:
             logger.error(
                 "Unexpected error parsing protobuf",
@@ -160,7 +156,7 @@ class ContentTypeHandler:
             )
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid protobuf data: {str(e)}",
+                detail=f"Invalid protobuf data: {e!s}",
             ) from e
 
     def create_unsupported_media_type_response(self, content_type: str) -> JSONResponse:

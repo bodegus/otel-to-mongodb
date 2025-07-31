@@ -17,8 +17,6 @@ logger = structlog.get_logger()
 class ProtobufParsingError(Exception):
     """Exception raised when protobuf parsing fails."""
 
-    pass
-
 
 class ProtobufParser:
     """Parser for OTLP protobuf messages to Pydantic models."""
@@ -39,10 +37,10 @@ class ProtobufParser:
 
         except DecodeError as e:
             logger.error("Failed to parse protobuf traces", error=str(e))
-            raise ProtobufParsingError(f"Invalid protobuf traces data: {str(e)}") from e
+            raise ProtobufParsingError(f"Invalid protobuf traces data: {e!s}") from e
         except Exception as e:
             logger.error("Unexpected error parsing protobuf traces", error=str(e), exc_info=True)
-            raise ProtobufParsingError(f"Error parsing protobuf traces: {str(e)}") from e
+            raise ProtobufParsingError(f"Error parsing protobuf traces: {e!s}") from e
 
     def parse_metrics(self, data: bytes) -> OTELMetricsData:
         """Parse protobuf metrics to OTELMetricsData model."""
@@ -60,10 +58,10 @@ class ProtobufParser:
 
         except DecodeError as e:
             logger.error("Failed to parse protobuf metrics", error=str(e))
-            raise ProtobufParsingError(f"Invalid protobuf metrics data: {str(e)}") from e
+            raise ProtobufParsingError(f"Invalid protobuf metrics data: {e!s}") from e
         except Exception as e:
             logger.error("Unexpected error parsing protobuf metrics", error=str(e), exc_info=True)
-            raise ProtobufParsingError(f"Error parsing protobuf metrics: {str(e)}") from e
+            raise ProtobufParsingError(f"Error parsing protobuf metrics: {e!s}") from e
 
     def parse_logs(self, data: bytes) -> OTELLogsData:
         """Parse protobuf logs to OTELLogsData model."""
@@ -81,10 +79,10 @@ class ProtobufParser:
 
         except DecodeError as e:
             logger.error("Failed to parse protobuf logs", error=str(e))
-            raise ProtobufParsingError(f"Invalid protobuf logs data: {str(e)}") from e
+            raise ProtobufParsingError(f"Invalid protobuf logs data: {e!s}") from e
         except Exception as e:
             logger.error("Unexpected error parsing protobuf logs", error=str(e), exc_info=True)
-            raise ProtobufParsingError(f"Error parsing protobuf logs: {str(e)}") from e
+            raise ProtobufParsingError(f"Error parsing protobuf logs: {e!s}") from e
 
     def _convert_traces_to_dict(self, pb_request: ExportTraceServiceRequest) -> dict[str, Any]:
         """Convert protobuf traces to dict suitable for Pydantic."""
@@ -157,13 +155,13 @@ class ProtobufParser:
         # Handle different value types based on the oneof field
         if pb_any_value.HasField("string_value"):
             return {"stringValue": pb_any_value.string_value}
-        elif pb_any_value.HasField("bool_value"):
+        if pb_any_value.HasField("bool_value"):
             return {"boolValue": pb_any_value.bool_value}
-        elif pb_any_value.HasField("int_value"):
+        if pb_any_value.HasField("int_value"):
             return {"intValue": str(pb_any_value.int_value)}
-        elif pb_any_value.HasField("double_value"):
+        if pb_any_value.HasField("double_value"):
             return {"doubleValue": pb_any_value.double_value}
-        elif pb_any_value.HasField("array_value"):
+        if pb_any_value.HasField("array_value"):
             return {
                 "arrayValue": {
                     "values": [
@@ -171,7 +169,7 @@ class ProtobufParser:
                     ]
                 }
             }
-        elif pb_any_value.HasField("kvlist_value"):
+        if pb_any_value.HasField("kvlist_value"):
             return {
                 "kvlistValue": {
                     "values": [
@@ -179,11 +177,10 @@ class ProtobufParser:
                     ]
                 }
             }
-        elif pb_any_value.HasField("bytes_value"):
+        if pb_any_value.HasField("bytes_value"):
             return {"bytesValue": pb_any_value.bytes_value}
-        else:
-            # Default to empty value
-            return {}
+        # Default to empty value
+        return {}
 
     def _convert_span(self, pb_span: Any) -> dict[str, Any]:
         """Convert protobuf Span to dict."""

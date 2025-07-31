@@ -64,8 +64,7 @@ class TestMongoDBClient:
         def side_effect(uri):
             if "localhost" in uri:
                 return mock_primary_client
-            else:
-                return mock_secondary_client
+            return mock_secondary_client
 
         mock_motor_client.side_effect = side_effect
 
@@ -121,8 +120,7 @@ class TestMongoDBClient:
         def side_effect(uri):
             if "primary" in uri:
                 return mock_primary_client
-            else:
-                return mock_secondary_client
+            return mock_secondary_client
 
         mock_motor_client.side_effect = side_effect
 

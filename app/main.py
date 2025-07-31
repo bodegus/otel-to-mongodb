@@ -1,13 +1,12 @@
 """
 FastAPI application for OpenTelemetry to MongoDB collection.
 
-This is a JSON-only OTLP (OpenTelemetry Protocol) receiver that:
-- Accepts OTLP data in JSON format via HTTP POST
+This is an OTLP (OpenTelemetry Protocol) receiver that:
+- Accepts OTLP data in JSON or protobuf format via HTTP POST
 - Provides OTLP-compliant response messages
 - Stores telemetry data in MongoDB (local and optionally cloud)
 - Supports traces, metrics, and logs
-
-Note: Binary protobuf format is not supported - only JSON.
+- Handles content-type based routing (application/json, application/x-protobuf)
 """
 
 import logging
@@ -16,6 +15,7 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
 from .content_handler import ContentTypeHandler
 from .models import (
@@ -27,6 +27,7 @@ from .models import (
 )
 from .mongo_client import MongoDBClient, get_mongodb_client
 from .otel_service import OTELService
+from .protobuf_parser import ProtobufParsingError
 
 
 # Configure logging
@@ -73,7 +74,7 @@ async def lifespan(app: FastAPI):
     await mongodb_client.disconnect()
 
 
-def create_app() -> FastAPI:
+def create_app() -> FastAPI:  # noqa: PLR0915
     """
     Create FastAPI application.
 
@@ -86,7 +87,48 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Exception handler
+    # Exception handlers for specific error types
+    @app.exception_handler(ProtobufParsingError)
+    async def protobuf_parsing_exception_handler(request: Request, exc: ProtobufParsingError):
+        """Handle protobuf parsing errors with OTLP-compliant error response."""
+        logger.error("Protobuf parsing error", error=str(exc), exc_info=True)
+        return JSONResponse(
+            status_code=400,
+            content=Status(
+                code=3,  # INVALID_ARGUMENT in OTLP status codes
+                message=f"Invalid protobuf data: {exc!s}",
+                details=[
+                    {"@type": "type.googleapis.com/google.rpc.BadRequest", "field_violations": []}
+                ],
+            ).model_dump(),
+        )
+
+    @app.exception_handler(ValidationError)
+    async def validation_exception_handler(request: Request, exc: ValidationError):
+        """Handle Pydantic validation errors with OTLP-compliant error response."""
+        logger.error("Validation error", error=str(exc), exc_info=True)
+        # Extract field errors for OTLP-compliant response
+        field_violations = []
+        for error in exc.errors():
+            field_violations.append(
+                {"field": ".".join(str(loc) for loc in error["loc"]), "description": error["msg"]}
+            )
+
+        return JSONResponse(
+            status_code=422,
+            content=Status(
+                code=3,  # INVALID_ARGUMENT in OTLP status codes
+                message="Validation error in telemetry data",
+                details=[
+                    {
+                        "@type": "type.googleapis.com/google.rpc.BadRequest",
+                        "field_violations": field_violations,
+                    }
+                ],
+            ).model_dump(),
+        )
+
+    # General exception handler
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         logger.error("Unhandled exception", error=str(exc), exc_info=True)
@@ -139,9 +181,12 @@ def create_app() -> FastAPI:
         except HTTPException:
             # Let HTTPExceptions (like 422, 415) propagate to FastAPI
             raise
+        except (ProtobufParsingError, ValidationError):
+            # Let these exceptions propagate to their custom handlers
+            raise
         except Exception as e:
             logger.error("Failed to process traces", error=str(e))
-            error_msg = f"Internal server error: {str(e)}"
+            error_msg = f"Internal server error: {e!s}"
             return JSONResponse(status_code=500, content=Status(message=error_msg).model_dump())
 
     @app.post("/v1/metrics", response_model=ExportMetricsServiceResponse)
@@ -164,9 +209,12 @@ def create_app() -> FastAPI:
         except HTTPException:
             # Let HTTPExceptions (like 422, 415) propagate to FastAPI
             raise
+        except (ProtobufParsingError, ValidationError):
+            # Let these exceptions propagate to their custom handlers
+            raise
         except Exception as e:
             logger.error("Failed to process metrics", error=str(e))
-            error_msg = f"Internal server error: {str(e)}"
+            error_msg = f"Internal server error: {e!s}"
             return JSONResponse(status_code=500, content=Status(message=error_msg).model_dump())
 
     @app.post("/v1/logs", response_model=ExportLogsServiceResponse)
@@ -189,9 +237,12 @@ def create_app() -> FastAPI:
         except HTTPException:
             # Let HTTPExceptions (like 422, 415) propagate to FastAPI
             raise
+        except (ProtobufParsingError, ValidationError):
+            # Let these exceptions propagate to their custom handlers
+            raise
         except Exception as e:
             logger.error("Failed to process logs", error=str(e))
-            error_msg = f"Internal server error: {str(e)}"
+            error_msg = f"Internal server error: {e!s}"
             return JSONResponse(status_code=500, content=Status(message=error_msg).model_dump())
 
     return app

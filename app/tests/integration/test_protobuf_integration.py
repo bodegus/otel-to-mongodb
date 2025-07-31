@@ -365,23 +365,21 @@ class TestProtobufIntegrationErrors:
         """Test that malformed protobuf data is handled gracefully."""
         from unittest.mock import AsyncMock, Mock
 
-        from fastapi import HTTPException
-
         from app.content_handler import ContentTypeHandler
+        from app.protobuf_parser import ProtobufParsingError
 
         handler = ContentTypeHandler()
         request = Mock()
         request.headers = {"content-type": "application/x-protobuf"}
         request.body = AsyncMock(return_value=malformed_protobuf_data["binary_data"])
 
-        # Should raise HTTP 400 error
-        with pytest.raises(HTTPException) as exc_info:
+        # Should raise ProtobufParsingError which will be handled by custom exception handler
+        with pytest.raises(ProtobufParsingError) as exc_info:
             await handler.parse_request_data(request, "traces")
 
-        assert exc_info.value.status_code == 400
-        assert "protobuf" in str(exc_info.value.detail).lower()
+        assert "protobuf" in str(exc_info.value).lower()
 
-        print("✅ Malformed protobuf test: Error handled correctly with HTTP 400")
+        print("✅ Malformed protobuf test: ProtobufParsingError raised correctly")
 
     @pytest.mark.integration
     @pytest.mark.requires_mongodb
@@ -390,23 +388,21 @@ class TestProtobufIntegrationErrors:
         """Test that empty protobuf data is handled gracefully."""
         from unittest.mock import AsyncMock, Mock
 
-        from fastapi import HTTPException
-
         from app.content_handler import ContentTypeHandler
+        from app.protobuf_parser import ProtobufParsingError
 
         handler = ContentTypeHandler()
         request = Mock()
         request.headers = {"content-type": "application/x-protobuf"}
         request.body = AsyncMock(return_value=b"")
 
-        # Should raise HTTP 400 error
-        with pytest.raises(HTTPException) as exc_info:
+        # Should raise ProtobufParsingError which will be handled by custom exception handler
+        with pytest.raises(ProtobufParsingError) as exc_info:
             await handler.parse_request_data(request, "traces")
 
-        assert exc_info.value.status_code == 400
-        assert "empty" in str(exc_info.value.detail).lower()
+        assert "empty" in str(exc_info.value).lower()
 
-        print("✅ Empty protobuf test: Error handled correctly with HTTP 400")
+        print("✅ Empty protobuf test: ProtobufParsingError raised correctly")
 
     @pytest.mark.integration
     @pytest.mark.requires_mongodb
