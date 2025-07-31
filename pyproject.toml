@@ -66,6 +66,7 @@ dev = [
     # Code Quality & Linting
     "ruff>=0.1.8",  # Modern linter/formatter (replaces flake8, isort, bandit, black + more)
     "mypy>=1.7.0",
+    "types-protobuf>=4.24.0",  # Type stubs for protobuf
     "pre-commit>=3.5.0",
 
     # Note: Dependency vulnerability scanning could be added with safety if needed

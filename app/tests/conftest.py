@@ -5,6 +5,10 @@ from typing import Any
 
 import pytest
 
+# Import all fixtures from fixture modules
+from .fixtures.otel_data import *  # noqa: F403
+from .fixtures.protobuf_data import *  # noqa: F403
+
 
 @pytest.fixture(scope="session")
 def event_loop():

@@ -14,17 +14,15 @@ import logging
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from .content_handler import ContentTypeHandler
 from .models import (
     ErrorResponse,
     ExportLogsServiceResponse,
     ExportMetricsServiceResponse,
     ExportTraceServiceResponse,
-    OTELLogsData,
-    OTELMetricsData,
-    OTELTracesData,
     Status,
 )
 from .mongo_client import MongoDBClient, get_mongodb_client
@@ -44,6 +42,18 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
+
+
+# Global content handler instance
+_content_handler: ContentTypeHandler | None = None
+
+
+def get_content_handler() -> ContentTypeHandler:
+    """Get ContentTypeHandler dependency."""
+    global _content_handler
+    if _content_handler is None:
+        _content_handler = ContentTypeHandler()
+    return _content_handler
 
 
 @asynccontextmanager
@@ -111,16 +121,24 @@ def create_app() -> FastAPI:
     # Telemetry endpoints
     @app.post("/v1/traces", response_model=ExportTraceServiceResponse)
     async def submit_traces(
-        traces_data: OTELTracesData, mongodb_client: MongoDBClient = Depends(get_mongodb_client)
+        request: Request,
+        mongodb_client: MongoDBClient = Depends(get_mongodb_client),
+        content_handler: ContentTypeHandler = Depends(get_content_handler),
     ):
-        """Submit OpenTelemetry traces (JSON format only)."""
+        """Submit OpenTelemetry traces (JSON or protobuf format)."""
         try:
+            # Parse request data based on content type
+            traces_data = await content_handler.parse_request_data(request, "traces")
+
             service = OTELService(mongodb_client)
             await service.process_traces(traces_data)
 
             # Return OTLP-compliant response (success case)
             return ExportTraceServiceResponse()
 
+        except HTTPException:
+            # Let HTTPExceptions (like 422, 415) propagate to FastAPI
+            raise
         except Exception as e:
             logger.error("Failed to process traces", error=str(e))
             error_msg = f"Internal server error: {str(e)}"
@@ -128,16 +146,24 @@ def create_app() -> FastAPI:
 
     @app.post("/v1/metrics", response_model=ExportMetricsServiceResponse)
     async def submit_metrics(
-        metrics_data: OTELMetricsData, mongodb_client: MongoDBClient = Depends(get_mongodb_client)
+        request: Request,
+        mongodb_client: MongoDBClient = Depends(get_mongodb_client),
+        content_handler: ContentTypeHandler = Depends(get_content_handler),
     ):
-        """Submit OpenTelemetry metrics (JSON format only)."""
+        """Submit OpenTelemetry metrics (JSON or protobuf format)."""
         try:
+            # Parse request data based on content type
+            metrics_data = await content_handler.parse_request_data(request, "metrics")
+
             service = OTELService(mongodb_client)
             await service.process_metrics(metrics_data)
 
             # Return OTLP-compliant response (success case)
             return ExportMetricsServiceResponse()
 
+        except HTTPException:
+            # Let HTTPExceptions (like 422, 415) propagate to FastAPI
+            raise
         except Exception as e:
             logger.error("Failed to process metrics", error=str(e))
             error_msg = f"Internal server error: {str(e)}"
@@ -145,16 +171,24 @@ def create_app() -> FastAPI:
 
     @app.post("/v1/logs", response_model=ExportLogsServiceResponse)
     async def submit_logs(
-        logs_data: OTELLogsData, mongodb_client: MongoDBClient = Depends(get_mongodb_client)
+        request: Request,
+        mongodb_client: MongoDBClient = Depends(get_mongodb_client),
+        content_handler: ContentTypeHandler = Depends(get_content_handler),
     ):
-        """Submit OpenTelemetry logs (JSON format only)."""
+        """Submit OpenTelemetry logs (JSON or protobuf format)."""
         try:
+            # Parse request data based on content type
+            logs_data = await content_handler.parse_request_data(request, "logs")
+
             service = OTELService(mongodb_client)
             await service.process_logs(logs_data)
 
             # Return OTLP-compliant response (success case)
             return ExportLogsServiceResponse()
 
+        except HTTPException:
+            # Let HTTPExceptions (like 422, 415) propagate to FastAPI
+            raise
         except Exception as e:
             logger.error("Failed to process logs", error=str(e))
             error_msg = f"Internal server error: {str(e)}"

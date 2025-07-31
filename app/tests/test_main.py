@@ -241,8 +241,9 @@ class TestTelemetryEndpoints:
             "/v1/traces", content="some data", headers={"Content-Type": "application/xml"}
         )
 
-        # FastAPI returns 422 for non-JSON content types
-        assert response.status_code == 422
+        # ContentTypeHandler returns 415 for unsupported content types (correct HTTP status)
+        assert response.status_code == 415
+        assert "Unsupported content type" in response.json()["detail"]
 
     @pytest.mark.unit
     def test_valid_json_data(self, client, sample_traces_data):
