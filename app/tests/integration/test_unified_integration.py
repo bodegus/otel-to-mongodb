@@ -29,17 +29,16 @@ TELEMETRY_MODELS = {
 
 
 async def parse_protobuf_data_via_handler(binary_data, data_type):
-    """Helper to parse protobuf data using the content handler."""
+    """Helper to parse protobuf data using the main parsing function."""
     from unittest.mock import AsyncMock, Mock
 
-    from app.content_handler import ContentTypeHandler
+    from app.content_handler import parse_request_data
 
-    handler = ContentTypeHandler()
     request = Mock()
     request.headers = {"content-type": "application/x-protobuf"}
     request.body = AsyncMock(return_value=binary_data)
 
-    return await handler.parse_request_data(request, data_type)
+    return await parse_request_data(request, data_type)
 
 
 async def process_telemetry_data(context, telemetry_data, data_type, request_id):

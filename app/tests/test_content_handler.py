@@ -1,23 +1,18 @@
-"""Unit tests for ContentTypeHandler module."""
+"""Unit tests for request data parsing."""
 
-import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastapi import HTTPException, Request
 from pydantic import ValidationError
 
-from app.content_handler import ContentTypeHandler
+from app.content_handler import parse_request_data
 from app.models import OTELLogsData, OTELMetricsData, OTELTracesData
 from app.protobuf_parser import ProtobufParsingError
 
 
-class TestContentTypeHandler:
-    """Test suite for ContentTypeHandler class."""
-
-    def setup_method(self):
-        """Set up test fixtures."""
-        self.handler = ContentTypeHandler()
+class TestRequestDataParsing:
+    """Test suite for request data parsing functions."""
 
     async def test_parse_json_traces_success(self, json_traces_data):
         """Test successful JSON traces parsing."""
@@ -27,7 +22,7 @@ class TestContentTypeHandler:
         request.json = AsyncMock(return_value=json_traces_data["data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "traces")
+        result = await parse_request_data(request, "traces")
 
         # Assert
         assert isinstance(result, OTELTracesData)
@@ -42,7 +37,7 @@ class TestContentTypeHandler:
         request.json = AsyncMock(return_value=json_metrics_data["data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "metrics")
+        result = await parse_request_data(request, "metrics")
 
         # Assert
         assert isinstance(result, OTELMetricsData)
@@ -56,7 +51,7 @@ class TestContentTypeHandler:
         request.json = AsyncMock(return_value=json_logs_data["data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "logs")
+        result = await parse_request_data(request, "logs")
 
         # Assert
         assert isinstance(result, OTELLogsData)
@@ -70,7 +65,7 @@ class TestContentTypeHandler:
         request.body = AsyncMock(return_value=protobuf_traces_data["binary_data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "traces")
+        result = await parse_request_data(request, "traces")
 
         # Assert
         assert isinstance(result, OTELTracesData)
@@ -84,7 +79,7 @@ class TestContentTypeHandler:
         request.body = AsyncMock(return_value=protobuf_metrics_data["binary_data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "metrics")
+        result = await parse_request_data(request, "metrics")
 
         # Assert
         assert isinstance(result, OTELMetricsData)
@@ -98,7 +93,7 @@ class TestContentTypeHandler:
         request.body = AsyncMock(return_value=protobuf_logs_data["binary_data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "logs")
+        result = await parse_request_data(request, "logs")
 
         # Assert
         assert isinstance(result, OTELLogsData)
@@ -112,7 +107,7 @@ class TestContentTypeHandler:
 
         # Act & Assert
         with pytest.raises(HTTPException) as exc_info:
-            await self.handler.parse_request_data(request, "traces")
+            await parse_request_data(request, "traces")
 
         assert exc_info.value.status_code == 415
         assert "Unsupported content type" in exc_info.value.detail
@@ -127,7 +122,7 @@ class TestContentTypeHandler:
         request.json = AsyncMock(return_value=json_traces_data["data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "traces")
+        result = await parse_request_data(request, "traces")
 
         # Assert
         assert isinstance(result, OTELTracesData)
@@ -141,7 +136,7 @@ class TestContentTypeHandler:
         request.json = AsyncMock(return_value=json_traces_data["data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "traces")
+        result = await parse_request_data(request, "traces")
 
         # Assert
         assert isinstance(result, OTELTracesData)
@@ -155,7 +150,7 @@ class TestContentTypeHandler:
         request.json = AsyncMock(return_value=json_traces_data["data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "traces")
+        result = await parse_request_data(request, "traces")
 
         # Assert
         assert isinstance(result, OTELTracesData)
@@ -169,7 +164,7 @@ class TestContentTypeHandler:
         request.json = AsyncMock(return_value=json_traces_data["data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "traces")
+        result = await parse_request_data(request, "traces")
 
         # Assert
         assert isinstance(result, OTELTracesData)
@@ -184,7 +179,7 @@ class TestContentTypeHandler:
 
         # Act & Assert - Now expects ValidationError to bubble up
         with pytest.raises(ValidationError) as exc_info:
-            await self.handler.parse_request_data(request, "traces")
+            await parse_request_data(request, "traces")
 
         assert "resourceSpans cannot be empty" in str(exc_info.value)
 
@@ -197,7 +192,7 @@ class TestContentTypeHandler:
 
         # Act & Assert
         with pytest.raises(HTTPException) as exc_info:
-            await self.handler.parse_request_data(request, "traces")
+            await parse_request_data(request, "traces")
 
         assert exc_info.value.status_code == 422
         assert "Invalid JSON" in exc_info.value.detail
@@ -211,7 +206,7 @@ class TestContentTypeHandler:
 
         # Act & Assert
         with pytest.raises(HTTPException) as exc_info:
-            await self.handler.parse_request_data(request, "traces")
+            await parse_request_data(request, "traces")
 
         assert exc_info.value.status_code == 422
         assert "Invalid JSON" in exc_info.value.detail
@@ -225,7 +220,7 @@ class TestContentTypeHandler:
 
         # Act & Assert - Now expects exception to bubble up
         with pytest.raises(RuntimeError) as exc_info:
-            await self.handler.parse_request_data(request, "traces")
+            await parse_request_data(request, "traces")
 
         assert "Unexpected error" in str(exc_info.value)
 
@@ -238,7 +233,7 @@ class TestContentTypeHandler:
 
         # Act & Assert - Now expects ProtobufParsingError to propagate
         with pytest.raises(ProtobufParsingError) as exc_info:
-            await self.handler.parse_request_data(request, "traces")
+            await parse_request_data(request, "traces")
 
         assert "Invalid protobuf" in str(exc_info.value)
 
@@ -251,7 +246,7 @@ class TestContentTypeHandler:
 
         # Act & Assert - Now expects ProtobufParsingError to propagate
         with pytest.raises(ProtobufParsingError) as exc_info:
-            await self.handler.parse_request_data(request, "traces")
+            await parse_request_data(request, "traces")
 
         assert "Empty protobuf data" in str(exc_info.value)
 
@@ -264,94 +259,90 @@ class TestContentTypeHandler:
 
         # Act & Assert - Now expects exception to bubble up
         with pytest.raises(RuntimeError) as exc_info:
-            await self.handler.parse_request_data(request, "traces")
+            await parse_request_data(request, "traces")
 
         assert "Unexpected error" in str(exc_info.value)
 
     async def test_invalid_data_type_raises_value_error(self, json_traces_data):
-        """Test invalid data type raises ValueError and returns 422."""
+        """Test invalid data type raises ValueError."""
         # Arrange
         request = Mock(spec=Request)
         request.headers = {"content-type": "application/json"}
         request.json = AsyncMock(return_value=json_traces_data["data"])
 
-        # Act & Assert
-        with pytest.raises(HTTPException) as exc_info:
-            await self.handler.parse_request_data(request, "invalid_type")
+        # Act & Assert - ValueError is raised directly, not wrapped in HTTPException
+        with pytest.raises(ValueError) as exc_info:
+            await parse_request_data(request, "invalid_type")
 
-        # ValueError is caught as JSON parsing error and returns 422
-        assert exc_info.value.status_code == 422
-        assert "Unknown data type" in exc_info.value.detail
+        assert "Unknown data type" in str(exc_info.value)
 
-    def test_get_content_type_with_header(self):
-        """Test _get_content_type with explicit header."""
+    async def test_content_type_with_header(self, json_traces_data):
+        """Test content type detection with explicit header."""
         # Arrange
         request = Mock(spec=Request)
         request.headers = {"content-type": "application/json"}
+        request.json = AsyncMock(return_value=json_traces_data["data"])
 
         # Act
-        result = self.handler._get_content_type(request)
+        result = await parse_request_data(request, "traces")
 
-        # Assert
-        assert result == "application/json"
+        # Assert - should parse successfully as JSON
+        assert isinstance(result, OTELTracesData)
 
-    def test_get_content_type_without_header(self):
-        """Test _get_content_type defaults to JSON when no header."""
+    async def test_content_type_without_header(self, json_traces_data):
+        """Test content type defaults to JSON when no header."""
         # Arrange
         request = Mock(spec=Request)
-        request.headers = {}
+        request.headers = {}  # No content-type header
+        request.json = AsyncMock(return_value=json_traces_data["data"])
 
         # Act
-        result = self.handler._get_content_type(request)
+        result = await parse_request_data(request, "traces")
 
-        # Assert
-        assert result == "application/json"
+        # Assert - should default to JSON parsing
+        assert isinstance(result, OTELTracesData)
 
-    def test_get_content_type_with_parameters(self):
-        """Test _get_content_type strips parameters."""
+    async def test_content_type_with_parameters(self, json_traces_data):
+        """Test content type strips parameters."""
         # Arrange
         request = Mock(spec=Request)
         request.headers = {"content-type": "application/json; charset=utf-8; boundary=something"}
+        request.json = AsyncMock(return_value=json_traces_data["data"])
 
         # Act
-        result = self.handler._get_content_type(request)
+        result = await parse_request_data(request, "traces")
 
-        # Assert
-        assert result == "application/json"
+        # Assert - should parse as JSON despite parameters
+        assert isinstance(result, OTELTracesData)
 
-    def test_get_content_type_case_normalization(self):
-        """Test _get_content_type normalizes case."""
+    async def test_content_type_case_normalization(self, protobuf_traces_data):
+        """Test content type normalizes case."""
         # Arrange
         request = Mock(spec=Request)
         request.headers = {"content-type": "APPLICATION/X-PROTOBUF"}
+        request.body = AsyncMock(return_value=protobuf_traces_data["binary_data"])
 
         # Act
-        result = self.handler._get_content_type(request)
+        result = await parse_request_data(request, "traces")
 
-        # Assert
-        assert result == "application/x-protobuf"
+        # Assert - should parse as protobuf despite uppercase
+        assert isinstance(result, OTELTracesData)
 
-    def test_get_content_type_with_whitespace(self):
-        """Test _get_content_type handles whitespace."""
+    async def test_content_type_with_whitespace(self, json_traces_data):
+        """Test content type handles whitespace."""
         # Arrange
         request = Mock(spec=Request)
         request.headers = {"content-type": "  application/json  "}
+        request.json = AsyncMock(return_value=json_traces_data["data"])
 
         # Act
-        result = self.handler._get_content_type(request)
+        result = await parse_request_data(request, "traces")
 
-        # Assert
-        assert result == "application/json"
+        # Assert - should parse as JSON despite whitespace
+        assert isinstance(result, OTELTracesData)
 
-    def test_create_unsupported_media_type_response(self):
-        """Test create_unsupported_media_type_response method."""
-        # Act
-        response = self.handler.create_unsupported_media_type_response("application/xml")
-
-        # Assert
-        assert response.status_code == 415
-        assert "Unsupported media type" in json.loads(response.body.decode())["message"]
-        assert response.headers["Accept"] == "application/json, application/x-protobuf"
+    # Test removed - create_unsupported_media_type_response method no longer exists
+    # Unsupported media type responses are now handled by HTTPException in parse_request_data
 
     async def test_validation_error_serialization_with_context(self):
         """Test validation error with context objects are properly raised."""
@@ -386,7 +377,7 @@ class TestContentTypeHandler:
 
         # Act & Assert - Now expects ValidationError to bubble up
         with pytest.raises(ValidationError) as exc_info:
-            await self.handler.parse_request_data(request, "traces")
+            await parse_request_data(request, "traces")
 
         # Check that the error contains the expected validation message
         assert "Invalid hex string" in str(exc_info.value)
@@ -400,7 +391,7 @@ class TestContentTypeHandler:
 
         # Act
         with patch("app.content_handler.logger") as mock_logger:
-            await self.handler.parse_request_data(request, "traces")
+            await parse_request_data(request, "traces")
 
         # Assert
         mock_logger.info.assert_called_with(
@@ -418,7 +409,7 @@ class TestContentTypeHandler:
         # Act & Assert
         with patch("app.content_handler.logger") as mock_logger:
             with pytest.raises(HTTPException):
-                await self.handler.parse_request_data(request, "traces")
+                await parse_request_data(request, "traces")
 
         mock_logger.warning.assert_called_with(
             "Unsupported content type", content_type="application/xml", data_type="traces"

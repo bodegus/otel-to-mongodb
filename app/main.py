@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
-from .content_handler import ContentTypeHandler
+from .content_handler import parse_request_data
 from .models import (
     ErrorResponse,
     ExportLogsServiceResponse,
@@ -43,18 +43,6 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
-
-
-# Global content handler instance
-_content_handler: ContentTypeHandler | None = None
-
-
-def get_content_handler() -> ContentTypeHandler:
-    """Get ContentTypeHandler dependency."""
-    global _content_handler
-    if _content_handler is None:
-        _content_handler = ContentTypeHandler()
-    return _content_handler
 
 
 @asynccontextmanager
@@ -165,12 +153,11 @@ def create_app() -> FastAPI:  # noqa: PLR0915
     async def submit_traces(
         request: Request,
         mongodb_client: MongoDBClient = Depends(get_mongodb_client),
-        content_handler: ContentTypeHandler = Depends(get_content_handler),
     ):
         """Submit OpenTelemetry traces (JSON or protobuf format)."""
         try:
             # Parse request data based on content type
-            traces_data = await content_handler.parse_request_data(request, "traces")
+            traces_data = await parse_request_data(request, "traces")
 
             service = OTELService(mongodb_client)
             await service.process_traces(traces_data)
@@ -193,12 +180,11 @@ def create_app() -> FastAPI:  # noqa: PLR0915
     async def submit_metrics(
         request: Request,
         mongodb_client: MongoDBClient = Depends(get_mongodb_client),
-        content_handler: ContentTypeHandler = Depends(get_content_handler),
     ):
         """Submit OpenTelemetry metrics (JSON or protobuf format)."""
         try:
             # Parse request data based on content type
-            metrics_data = await content_handler.parse_request_data(request, "metrics")
+            metrics_data = await parse_request_data(request, "metrics")
 
             service = OTELService(mongodb_client)
             await service.process_metrics(metrics_data)
@@ -221,12 +207,11 @@ def create_app() -> FastAPI:  # noqa: PLR0915
     async def submit_logs(
         request: Request,
         mongodb_client: MongoDBClient = Depends(get_mongodb_client),
-        content_handler: ContentTypeHandler = Depends(get_content_handler),
     ):
         """Submit OpenTelemetry logs (JSON or protobuf format)."""
         try:
             # Parse request data based on content type
-            logs_data = await content_handler.parse_request_data(request, "logs")
+            logs_data = await parse_request_data(request, "logs")
 
             service = OTELService(mongodb_client)
             await service.process_logs(logs_data)

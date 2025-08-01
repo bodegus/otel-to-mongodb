@@ -9,29 +9,11 @@ repos:
       - id: check-json
         exclude: ^\.vscode/
       - id: check-added-large-files
-        args: ['--maxkb=1000']
-        exclude: 'reference/'
+        args: ["--maxkb=1000"]
+        exclude: "reference/"
       - id: check-merge-conflict
       - id: debug-statements
       - id: check-docstring-first
-
-# isort removed - using Ruff's built-in import sorting (I rules)
-
-  # Temporarily disabled - requires extensive type annotation work
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.7.1
-  #   hooks:
-  #     - id: mypy
-  #       additional_dependencies: [
-  #         pydantic>=2.5.0,
-  #         fastapi>=0.104.0,
-  #         pymongo>=4.6.0,
-  #         motor>=3.3.0,
-  #         types-requests,
-  #         structlog>=23.2.0
-  #       ]
-  #       args: [--ignore-missing-imports, --no-strict-optional]
-  #       exclude: ^(tests/|app/tests/)
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.4
@@ -41,7 +23,6 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
         name: ruff-format
-
 
   - repo: local
     hooks:

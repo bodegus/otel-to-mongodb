@@ -10,17 +10,13 @@ import pytest
 from fastapi import HTTPException, Request
 from pydantic import ValidationError
 
-from app.content_handler import ContentTypeHandler
+from app.content_handler import parse_request_data
 from app.models import OTELLogsData, OTELMetricsData, OTELTracesData
 from app.protobuf_parser import ProtobufParsingError
 
 
-class TestContentTypeHandlerUnified:
+class TestRequestDataParsingUnified:
     """Test suite demonstrating unified fixture usage."""
-
-    def setup_method(self):
-        """Set up test fixtures."""
-        self.handler = ContentTypeHandler()
 
     @pytest.mark.unit
     async def test_parse_request_data_both_formats(self, unified_traces_data):
@@ -38,7 +34,7 @@ class TestContentTypeHandlerUnified:
             request.body = AsyncMock(return_value=unified_traces_data["binary_data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "traces")
+        result = await parse_request_data(request, "traces")
 
         # Assert - same assertions work for both formats
         assert isinstance(result, OTELTracesData)
@@ -69,7 +65,7 @@ class TestContentTypeHandlerUnified:
             request.body = AsyncMock(return_value=unified_metrics_data["binary_data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "metrics")
+        result = await parse_request_data(request, "metrics")
 
         # Assert
         assert isinstance(result, OTELMetricsData)
@@ -99,7 +95,7 @@ class TestContentTypeHandlerUnified:
             request.body = AsyncMock(return_value=unified_logs_data["binary_data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "logs")
+        result = await parse_request_data(request, "logs")
 
         # Assert
         assert isinstance(result, OTELLogsData)
@@ -122,7 +118,7 @@ class TestContentTypeHandlerUnified:
         request.json = AsyncMock(return_value=json_traces_data["data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "traces")
+        result = await parse_request_data(request, "traces")
 
         # Assert
         assert isinstance(result, OTELTracesData)
@@ -137,7 +133,7 @@ class TestContentTypeHandlerUnified:
         request.body = AsyncMock(return_value=protobuf_traces_data["binary_data"])
 
         # Act
-        result = await self.handler.parse_request_data(request, "traces")
+        result = await parse_request_data(request, "traces")
 
         # Assert
         assert isinstance(result, OTELTracesData)
@@ -152,7 +148,7 @@ class TestContentTypeHandlerUnified:
 
         # Act & Assert
         with pytest.raises(HTTPException) as exc_info:
-            await self.handler.parse_request_data(request, "traces")
+            await parse_request_data(request, "traces")
 
         assert exc_info.value.status_code == 415
         assert "Unsupported content type" in exc_info.value.detail
@@ -180,7 +176,7 @@ class TestContentTypeHandlerUnified:
         # Act & Assert
         if content_type == "application/json":
             with pytest.raises(ValidationError):
-                await self.handler.parse_request_data(request, "traces")
+                await parse_request_data(request, "traces")
         else:  # protobuf empty data raises ProtobufParsingError
             with pytest.raises(ProtobufParsingError):
-                await self.handler.parse_request_data(request, "traces")
+                await parse_request_data(request, "traces")

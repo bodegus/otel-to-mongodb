@@ -30,7 +30,7 @@ Environment variables:
 
 **Core**: FastAPI, Pydantic, Motor (async MongoDB), structlog
 **Testing**: pytest, mongomock, Docker containers
-**Tooling**: Ruff (linting/formatting), mypy (type checking), pre-commit
+**Tooling**: Ruff (linting/formatting), pre-commit
 
 ## Development Standards
 

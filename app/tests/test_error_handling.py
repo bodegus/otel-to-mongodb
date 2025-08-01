@@ -230,13 +230,11 @@ class TestProtobufErrorHandling:
     def test_internal_server_error_format(self, client, monkeypatch):
         """Test that internal server errors return consistent format."""
 
-        # Mock the content handler to raise an unexpected error
+        # Mock the request parsing to raise an unexpected error
         def mock_parse_request_data(*args, **kwargs):
             raise RuntimeError("Unexpected internal error")
 
-        from app.content_handler import ContentTypeHandler
-
-        monkeypatch.setattr(ContentTypeHandler, "parse_request_data", mock_parse_request_data)
+        monkeypatch.setattr("app.main.parse_request_data", mock_parse_request_data)
 
         response = client.post(
             "/v1/traces", json={"resourceSpans": [{"resource": {}, "scopeSpans": []}]}
