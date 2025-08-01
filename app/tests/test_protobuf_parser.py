@@ -6,6 +6,7 @@ from app.models import OTELLogsData, OTELMetricsData, OTELTracesData
 from app.protobuf_parser import ProtobufParser, ProtobufParsingError
 
 
+@pytest.mark.unit
 class TestProtobufParser:
     """Test suite for ProtobufParser class."""
 
@@ -45,10 +46,10 @@ class TestProtobufParser:
         assert span1.span_id == "1234567890abcdef"
         assert span1.kind == 1
 
-    def test_parse_traces_multi_span(self, multi_span_protobuf_traces_data):
+    def test_parse_traces_multi_span(self, protobuf_traces_data):
         """Test parsing protobuf traces data with multiple spans."""
         # Act
-        result = self.parser.parse_traces(multi_span_protobuf_traces_data["binary_data"])
+        result = self.parser.parse_traces(protobuf_traces_data["binary_data"])
 
         # Assert
         assert isinstance(result, OTELTracesData)
@@ -57,7 +58,7 @@ class TestProtobufParser:
             for resource_spans in result.resource_spans
             for scope_spans in resource_spans.scope_spans
         )
-        assert total_spans == multi_span_protobuf_traces_data["expected_count"]
+        assert total_spans == protobuf_traces_data["expected_count"]
 
     def test_parse_traces_empty_data(self, empty_protobuf_traces_data):
         """Test parsing empty protobuf traces data raises validation error."""

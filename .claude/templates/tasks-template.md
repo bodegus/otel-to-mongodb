@@ -74,4 +74,5 @@
   - Integrate all components
   - Fix any integration issues
   - Clean up code and documentation
+  - Run Ruff this project's all-in-one linter and formater
   - _Requirements: All_

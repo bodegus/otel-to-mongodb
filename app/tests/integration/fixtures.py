@@ -114,12 +114,20 @@ class OTELIntegrationTestContext:
             self.collections_created.append(name)
         return collection
 
-    async def verify_telemetry_data(self, data_type: str, expected_count: int = 1) -> list:
+    async def verify_telemetry_data(
+        self, data_type: str, expected_count: int = 1, request_id: str = None
+    ) -> list:
         """Verify telemetry data was written to MongoDB."""
         collection = self.get_collection(data_type)
-        documents = list(collection.find({"data_type": data_type}))
+
+        # Build query - use request_id for specificity if provided
+        query = {"data_type": data_type}
+        if request_id:
+            query["request_id"] = request_id
+
+        documents = list(collection.find(query))
         assert len(documents) == expected_count, (
-            f"Expected {expected_count} {data_type} documents, found {len(documents)}"
+            f"Expected {expected_count} {data_type} documents with query {query}, found {len(documents)}"
         )
         return documents
 
@@ -155,8 +163,10 @@ def mongodb_container():
 
 @pytest.fixture
 async def otel_integration_context(
-    mongodb_container, request
+    mongodb_container,
+    request,
 ) -> Generator[OTELIntegrationTestContext, None, None]:
+    # TODO: evaluate if this is still needed ot can be simplified
     """
     Function-scoped OTEL integration test context with unique database and configured services.
 

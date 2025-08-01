@@ -1,13 +1,25 @@
-"""Simple test configuration and fixtures."""
+"""Test configuration and unified fixtures.
+
+This module provides unified fixtures that generate both JSON and protobuf
+test data from single sources, eliminating duplication.
+
+FIXTURE USAGE:
+- Use unified_*_data fixtures for automatic JSON/protobuf testing
+- Use json_*_data fixtures when you only need JSON format
+- Use protobuf_*_data fixtures when you only need protobuf format
+- Legacy fixtures are maintained for specific edge cases
+"""
 
 import asyncio
-from typing import Any
 
 import pytest
 
-# Import all fixtures from fixture modules
-from .fixtures.otel_data import *  # noqa: F403
-from .fixtures.protobuf_data import *  # noqa: F403
+# Import unified fixtures (new approach - preferred for new tests)
+from .unified_fixtures import *  # noqa: F403
+
+
+# All fixtures now provided by unified_fixtures.py
+# Legacy fixture files kept for reference but no longer imported
 
 
 @pytest.fixture(scope="session")
@@ -16,30 +28,3 @@ def event_loop():
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
-
-
-@pytest.fixture
-def sample_trace_data() -> dict[str, Any]:
-    """Sample OpenTelemetry trace data."""
-    return {
-        "resourceSpans": [
-            {
-                "resource": {"attributes": []},
-                "scopeSpans": [
-                    {
-                        "scope": {"name": "test-scope"},
-                        "spans": [
-                            {
-                                "traceId": "0123456789abcdef0123456789abcdef",
-                                "spanId": "0123456789abcdef",
-                                "name": "test-span",
-                                "kind": 1,
-                                "startTimeUnixNano": "1640995200000000000",
-                                "endTimeUnixNano": "1640995201000000000",
-                            }
-                        ],
-                    }
-                ],
-            }
-        ]
-    }

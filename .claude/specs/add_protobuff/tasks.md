@@ -97,13 +97,78 @@ This implementation adds Protocol Buffer support to the existing JSON-only OpenT
   - _Leverage: pyproject.toml existing test configuration, ruff and mypy setup_
   - _Requirements: 6.1, 6.3, 7.1, 7.2, 7.5_
 
+- [x] 12. Consolidate error handling with FastAPI middleware
+  - Create `app/middleware/error_middleware.py` with centralized exception handling
+  - Implement middleware for ProtobufParsingError, ValidationError, and HTTPException
+  - Remove duplicate exception handlers from main.py (4 handlers → 1 middleware)
+  - Update all modules to let exceptions bubble up to middleware
+  - Test error response consistency and OTLP compliance
+  - _Leverage: FastAPI middleware patterns, existing Status model_
+  - _Requirements: Reduce error handling boilerplate (80-100 lines reduction)_
+
+- [x] 13. Refactor test fixtures to eliminate duplication
+  - Create parametrized fixtures in `app/tests/conftest.py` that generate both JSON and protobuf data
+  - Replace separate JSON/protobuf fixtures with unified `@pytest.mark.parametrize` approach
+  - Update all test files to use parametrized content-type testing
+  - Remove redundant fixture files and consolidate test data generation
+  - Maintain test coverage while reducing fixture code by 60-70%
+  - _Leverage: pytest parametrize patterns, existing fixture infrastructure_
+  - _Requirements: Eliminate fixture duplication (300-400 lines reduction)_
+
+- [ ] 14. Simplify ContentTypeHandler architecture
+  - Move content-type detection logic directly into endpoint functions
+  - Replace ContentTypeHandler class with simple utility functions
+  - Eliminate unnecessary abstraction layer and dependency injection
+  - Inline protobuf/JSON parsing logic in main.py endpoints
+  - Reduce architectural complexity while maintaining functionality
+  - _Leverage: FastAPI Request object, direct function calls_
+  - _Requirements: Reduce over-engineering (100-150 lines reduction)_
+
+- [ ] 15. Optimize ProtobufParser for simplicity
+  - Refactor ProtobufParser methods to pure functions
+  - Remove class-based structure and instance state
+  - Inline smaller conversion methods to reduce function call overhead
+  - Simplify protobuf-to-dict conversion with direct field mapping
+  - Maintain parsing accuracy while reducing code complexity
+  - _Leverage: Direct protobuf field access, simplified data structures_
+  - _Requirements: Reduce parser complexity (100-150 lines reduction)_
+
+- [ ] 16. Update imports and clean up unused code
+  - Remove unused imports across all modified modules
+  - Clean up deprecated error handling imports
+  - Update test imports to reflect simplified fixture structure
+  - Remove unused utility functions and helper methods
+  - Run comprehensive linting to catch any orphaned code
+  - _Leverage: ruff unused import detection, automated cleanup_
+  - _Requirements: Final cleanup (30-60 lines reduction)_
+
+- [ ] 17. Validate simplified implementation
+  - Run full test suite to ensure no functionality regression
+  - Verify error handling maintains OTLP compliance
+  - Test performance impact of architectural changes
+  - Validate backward compatibility with existing API contracts
+  - Run integration tests with real protobuf and JSON data
+  - Measure actual lines of code reduction achieved
+  - _Leverage: existing test suite, pytest markers, Docker integration tests_
+  - _Requirements: Ensure refactoring maintains all functionality_
+
 ## Task Dependencies
+
+**Phase 1: Core Implementation (Tasks 1-11)**
 - Tasks 1-3 can be completed in parallel (foundation components)
 - Task 4 depends on tasks 2-3 (endpoint modification needs parser and handler)
 - Tasks 5-7 can be completed in parallel (test infrastructure)
 - Tasks 8-9 depend on tasks 4-7 (endpoint tests need working implementation and fixtures)
 - Task 10 depends on tasks 1-9 (error handling needs complete implementation)
 - Task 11 is final validation that depends on all previous tasks
+
+**Phase 2: Simplification and Refactoring (Tasks 12-17)**
+- Task 12 (error middleware) can be done independently and should be first
+- Task 13 (test fixtures) can be done in parallel with task 12
+- Task 14 (ContentTypeHandler) depends on task 12 (centralized error handling)
+- Task 15 (ProtobufParser) can be done in parallel with task 14
+- Task 16 (cleanup) depends on tasks 12-15 (needs all refactoring complete)
+- Task 17 (validation) depends on tasks 12-16 (final verification of all changes)
 
 ## Success Criteria
 - All existing JSON functionality remains unchanged and tests pass

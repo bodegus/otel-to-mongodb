@@ -1,6 +1,6 @@
 """Tests for OTEL service."""
 
-# ruff: noqa: F811  # Ignore fixture redefinition warnings (imports vs function parameters)
+# Ignore fixture redefinition warnings (imports vs function parameters)
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -9,15 +9,9 @@ import pytest
 from app.models import OTELLogsData, OTELMetricsData, OTELTracesData
 from app.otel_service import OTELService
 
-# Import shared fixtures (used as pytest fixtures in function parameters)
-from .fixtures.otel_data import (  # noqa: F401
-    multi_logs_data,
-    multi_metrics_data,
-    multi_span_traces_data,
-    sample_logs_data,
-    sample_metrics_data,
-    sample_traces_data,
-)
+
+# Use unified fixtures from conftest.py - no explicit imports needed
+# Fixtures: json_traces_data, json_metrics_data, json_logs_data are automatically available
 
 
 class TestOTELService:
@@ -47,11 +41,11 @@ class TestOTELService:
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_process_traces_success(
-        self, otel_service, mock_mongodb_client, sample_traces_data
+        self, otel_service, mock_mongodb_client, json_traces_data
     ):
         """Test successful traces processing."""
         # Convert dict to Pydantic model - use data from fixture
-        traces_data = OTELTracesData(**sample_traces_data["data"])
+        traces_data = OTELTracesData(**json_traces_data["data"])
 
         result = await otel_service.process_traces(traces_data)
 
@@ -67,16 +61,16 @@ class TestOTELService:
         # Verify return values using expected count from fixture
         assert result.success is True
         assert result.data_type == "traces"
-        assert result.records_processed == sample_traces_data["expected_count"]
+        assert result.records_processed == json_traces_data["expected_count"]
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_process_metrics_success(
-        self, otel_service, mock_mongodb_client, sample_metrics_data
+        self, otel_service, mock_mongodb_client, json_metrics_data
     ):
         """Test successful metrics processing using shared test data."""
         # Convert dict to Pydantic model - use data from fixture
-        metrics_data = OTELMetricsData(**sample_metrics_data["data"])
+        metrics_data = OTELMetricsData(**json_metrics_data["data"])
 
         result = await otel_service.process_metrics(metrics_data)
 
@@ -92,14 +86,14 @@ class TestOTELService:
         # Verify return values using expected count from fixture
         assert result.success is True
         assert result.data_type == "metrics"
-        assert result.records_processed == sample_metrics_data["expected_count"]
+        assert result.records_processed == json_metrics_data["expected_count"]
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_process_logs_success(self, otel_service, mock_mongodb_client, sample_logs_data):
+    async def test_process_logs_success(self, otel_service, mock_mongodb_client, json_logs_data):
         """Test successful logs processing using shared test data."""
         # Convert dict to Pydantic model - use data from fixture
-        logs_data = OTELLogsData(**sample_logs_data["data"])
+        logs_data = OTELLogsData(**json_logs_data["data"])
 
         result = await otel_service.process_logs(logs_data)
 
@@ -115,22 +109,22 @@ class TestOTELService:
         # Verify return values using expected count from fixture
         assert result.success is True
         assert result.data_type == "logs"
-        assert result.records_processed == sample_logs_data["expected_count"]
+        assert result.records_processed == json_logs_data["expected_count"]
 
     @pytest.mark.unit
-    def test_count_spans(self, otel_service, multi_span_traces_data):
-        """Test span counting using multi_span fixture."""
-        count = otel_service._count_spans(multi_span_traces_data["data"])
-        assert count == multi_span_traces_data["expected_count"]
+    def test_count_spans(self, otel_service, json_traces_data):
+        """Test span counting using unified traces fixture."""
+        count = otel_service._count_spans(json_traces_data["data"])
+        assert count == json_traces_data["expected_count"]
 
     @pytest.mark.unit
-    def test_count_metrics(self, otel_service, multi_metrics_data):
-        """Test metrics counting using multi_metrics fixture."""
-        count = otel_service._count_metrics(multi_metrics_data["data"])
-        assert count == multi_metrics_data["expected_count"]
+    def test_count_metrics(self, otel_service, json_metrics_data):
+        """Test metrics counting using unified metrics fixture."""
+        count = otel_service._count_metrics(json_metrics_data["data"])
+        assert count == json_metrics_data["expected_count"]
 
     @pytest.mark.unit
-    def test_count_log_records(self, otel_service, multi_logs_data):
-        """Test log records counting using multi_logs fixture."""
-        count = otel_service._count_log_records(multi_logs_data["data"])
-        assert count == multi_logs_data["expected_count"]
+    def test_count_log_records(self, otel_service, json_logs_data):
+        """Test log records counting using unified logs fixture."""
+        count = otel_service._count_log_records(json_logs_data["data"])
+        assert count == json_logs_data["expected_count"]

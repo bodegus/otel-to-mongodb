@@ -84,36 +84,10 @@ class TestHealthEndpoints:
 class TestTelemetryEndpoints:
     """Test telemetry data endpoints."""
 
-    @pytest.fixture
-    def sample_traces_data(self):
-        """Sample traces data."""
-        return {
-            "resourceSpans": [
-                {
-                    "resource": {"attributes": []},
-                    "scopeSpans": [
-                        {
-                            "scope": {"name": "test-scope"},
-                            "spans": [
-                                {
-                                    "traceId": ("0123456789abcdef0123456789abcdef"),
-                                    "spanId": "0123456789abcdef",
-                                    "name": "test-span",
-                                    "kind": 1,
-                                    "startTimeUnixNano": "1640995200000000000",
-                                    "endTimeUnixNano": "1640995201000000000",
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-        }
-
     @pytest.mark.unit
-    def test_submit_traces_success(self, client, sample_traces_data, mock_mongodb_client):
+    def test_submit_traces_success(self, client, json_traces_data, mock_mongodb_client):
         """Test successful traces submission."""
-        response = client.post("/v1/traces", json=sample_traces_data)
+        response = client.post("/v1/traces", json=json_traces_data["data"])
 
         assert response.status_code == 200
         data = response.json()
@@ -131,19 +105,23 @@ class TestTelemetryEndpoints:
         response = client.post("/v1/traces", json=invalid_data)
 
         assert response.status_code == 422
-        detail_msg = response.json()["detail"][0]["msg"].lower()
-        # Updated to match actual Pydantic error message
-        assert "value error" in detail_msg or "validation error" in detail_msg
+        data = response.json()
+        assert data["code"] == 3  # INVALID_ARGUMENT
+        assert "Validation error" in data["message"]
+        assert data["details"][0]["field_violations"][0]["field"] == "resourceSpans"
 
     @pytest.mark.unit
-    def test_submit_traces_invalid_hex_id(self, client, sample_traces_data):
+    def test_submit_traces_invalid_hex_id(self, client, json_traces_data):
         """Test traces with invalid hex ID."""
-        # Make trace ID invalid
-        resource_spans = sample_traces_data["resourceSpans"][0]
+        # Make trace ID invalid - need to copy the data first
+        import copy
+
+        traces_data = copy.deepcopy(json_traces_data["data"])
+        resource_spans = traces_data["resourceSpans"][0]
         spans = resource_spans["scopeSpans"][0]["spans"]
         spans[0]["traceId"] = "invalid_hex"
 
-        response = client.post("/v1/traces", json=sample_traces_data)
+        response = client.post("/v1/traces", json=traces_data)
 
         assert response.status_code == 422
 
@@ -215,9 +193,9 @@ class TestTelemetryEndpoints:
         assert data.get("partialSuccess") is None
 
     @pytest.mark.unit
-    def test_request_id_header(self, client, sample_traces_data, mock_mongodb_client):
+    def test_request_id_header(self, client, json_traces_data, mock_mongodb_client):
         """Test that telemetry submission works."""
-        response = client.post("/v1/traces", json=sample_traces_data)
+        response = client.post("/v1/traces", json=json_traces_data["data"])
 
         assert response.status_code == 200
         # Just verify we get a successful OTLP response
@@ -246,9 +224,9 @@ class TestTelemetryEndpoints:
         assert "Unsupported content type" in response.json()["detail"]
 
     @pytest.mark.unit
-    def test_valid_json_data(self, client, sample_traces_data):
+    def test_valid_json_data(self, client, json_traces_data):
         """Test that valid JSON OTLP data is accepted."""
-        response = client.post("/v1/traces", json=sample_traces_data)
+        response = client.post("/v1/traces", json=json_traces_data["data"])
 
         assert response.status_code == 200
         data = response.json()
@@ -257,12 +235,12 @@ class TestTelemetryEndpoints:
     # Protobuf Support Tests
     @pytest.mark.unit
     def test_submit_protobuf_traces_success(
-        self, client, sample_protobuf_traces_data, mock_mongodb_client
+        self, client, protobuf_traces_data, mock_mongodb_client
     ):
         """Test successful protobuf traces submission."""
         response = client.post(
             "/v1/traces",
-            content=sample_protobuf_traces_data["binary_data"],
+            content=protobuf_traces_data["binary_data"],
             headers={"Content-Type": "application/x-protobuf"},
         )
 
@@ -274,12 +252,12 @@ class TestTelemetryEndpoints:
 
     @pytest.mark.unit
     def test_submit_protobuf_metrics_success(
-        self, client, sample_protobuf_metrics_data, mock_mongodb_client
+        self, client, protobuf_metrics_data, mock_mongodb_client
     ):
         """Test successful protobuf metrics submission."""
         response = client.post(
             "/v1/metrics",
-            content=sample_protobuf_metrics_data["binary_data"],
+            content=protobuf_metrics_data["binary_data"],
             headers={"Content-Type": "application/x-protobuf"},
         )
 
@@ -290,13 +268,11 @@ class TestTelemetryEndpoints:
         assert data.get("partialSuccess") is None
 
     @pytest.mark.unit
-    def test_submit_protobuf_logs_success(
-        self, client, sample_protobuf_logs_data, mock_mongodb_client
-    ):
+    def test_submit_protobuf_logs_success(self, client, protobuf_logs_data, mock_mongodb_client):
         """Test successful protobuf logs submission."""
         response = client.post(
             "/v1/logs",
-            content=sample_protobuf_logs_data["binary_data"],
+            content=protobuf_logs_data["binary_data"],
             headers={"Content-Type": "application/x-protobuf"},
         )
 
@@ -351,31 +327,29 @@ class TestTelemetryEndpoints:
         assert "protobuf" in data["message"].lower()
 
     @pytest.mark.unit
-    def test_content_type_case_insensitive(
-        self, client, sample_protobuf_traces_data, mock_mongodb_client
-    ):
+    def test_content_type_case_insensitive(self, client, protobuf_traces_data, mock_mongodb_client):
         """Test content-type header is case insensitive."""
         response = client.post(
             "/v1/traces",
-            content=sample_protobuf_traces_data["binary_data"],
+            content=protobuf_traces_data["binary_data"],
             headers={"Content-Type": "APPLICATION/X-PROTOBUF"},
         )
 
         assert response.status_code == 200
 
     @pytest.mark.unit
-    def test_content_type_with_charset(self, client, sample_traces_data):
+    def test_content_type_with_charset(self, client, json_traces_data):
         """Test JSON content-type with charset parameter."""
         response = client.post(
             "/v1/traces",
-            json=sample_traces_data,
+            json=json_traces_data["data"],
             headers={"Content-Type": "application/json; charset=utf-8"},
         )
 
         assert response.status_code == 200
 
     @pytest.mark.unit
-    def test_missing_content_type_defaults_json(self, client, sample_traces_data):
+    def test_missing_content_type_defaults_json(self, client, json_traces_data):
         """Test missing content-type defaults to JSON."""
         # TestClient automatically sets content-type for json parameter,
         # so we'll use content parameter with no explicit content-type
@@ -383,7 +357,7 @@ class TestTelemetryEndpoints:
 
         response = client.post(
             "/v1/traces",
-            content=json_module.dumps(sample_traces_data),
+            content=json_module.dumps(json_traces_data["data"]),
             # No Content-Type header - should default to JSON
         )
 
@@ -419,28 +393,28 @@ class TestTelemetryEndpoints:
 
     @pytest.mark.unit
     def test_mixed_requests_same_endpoint(
-        self, client, sample_traces_data, sample_protobuf_traces_data, mock_mongodb_client
+        self, client, json_traces_data, protobuf_traces_data, mock_mongodb_client
     ):
         """Test that same endpoint can handle both JSON and protobuf requests."""
         # First send JSON request
-        json_response = client.post("/v1/traces", json=sample_traces_data)
+        json_response = client.post("/v1/traces", json=json_traces_data["data"])
         assert json_response.status_code == 200
 
         # Then send protobuf request to same endpoint
         protobuf_response = client.post(
             "/v1/traces",
-            content=sample_protobuf_traces_data["binary_data"],
+            content=protobuf_traces_data["binary_data"],
             headers={"Content-Type": "application/x-protobuf"},
         )
         assert protobuf_response.status_code == 200
 
     @pytest.mark.unit
     def test_backward_compatibility_json_unchanged(
-        self, client, sample_traces_data, mock_mongodb_client
+        self, client, json_traces_data, mock_mongodb_client
     ):
         """Test that existing JSON behavior is completely unchanged."""
         # This test ensures backward compatibility
-        response = client.post("/v1/traces", json=sample_traces_data)
+        response = client.post("/v1/traces", json=json_traces_data["data"])
 
         assert response.status_code == 200
         data = response.json()

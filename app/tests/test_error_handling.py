@@ -120,16 +120,27 @@ class TestProtobufErrorHandling:
         assert response.status_code == 422
         data = response.json()
 
-        # Should have validation error details
-        assert "detail" in data
-        assert isinstance(data["detail"], list)
-        assert len(data["detail"]) > 0
+        # Should have OTLP Status format
+        assert "code" in data
+        assert data["code"] == 3  # INVALID_ARGUMENT
+        assert "message" in data
+        assert "Validation error" in data["message"]
+        assert "details" in data
+        assert isinstance(data["details"], list)
+        assert len(data["details"]) > 0
 
-        # Each error should have standard fields
-        error = data["detail"][0]
-        assert "loc" in error  # Location of error
-        assert "msg" in error  # Error message
-        assert "type" in error  # Error type
+        # First detail should have field violations
+        detail = data["details"][0]
+        assert "@type" in detail
+        assert detail["@type"] == "type.googleapis.com/google.rpc.BadRequest"
+        assert "field_violations" in detail
+        assert len(detail["field_violations"]) > 0
+
+        # Each field violation should have field and description
+        field_violation = detail["field_violations"][0]
+        assert "field" in field_violation
+        assert "description" in field_violation
+        assert "resourceSpans" in field_violation["field"]
 
     @pytest.mark.unit
     def test_protobuf_empty_data_error(self, client):
@@ -157,13 +168,13 @@ class TestProtobufErrorHandling:
         assert "detail" in data
 
     @pytest.mark.unit
-    def test_protobuf_malformed_hex_id_error(self, client, sample_protobuf_traces_data):
+    def test_protobuf_malformed_hex_id_error(self, client, protobuf_traces_data):
         """Test that protobuf with invalid hex IDs is handled properly."""
         # Note: This would require creating a protobuf with invalid hex ID
         # For now, we'll test that valid protobuf is processed correctly
         response = client.post(
             "/v1/traces",
-            content=sample_protobuf_traces_data["binary_data"],
+            content=protobuf_traces_data["binary_data"],
             headers={"Content-Type": "application/x-protobuf"},
         )
 
@@ -171,36 +182,23 @@ class TestProtobufErrorHandling:
         assert response.status_code == 200
 
     @pytest.mark.unit
-    def test_json_malformed_hex_id_error(self, client):
+    def test_json_malformed_hex_id_error(self, client, json_traces_data):
         """Test that JSON with invalid hex IDs returns validation error."""
-        invalid_json_data = {
-            "resourceSpans": [
-                {
-                    "resource": {"attributes": []},
-                    "scopeSpans": [
-                        {
-                            "scope": {"name": "test"},
-                            "spans": [
-                                {
-                                    "traceId": "invalid_hex_id",  # Invalid hex
-                                    "spanId": "0123456789abcdef",
-                                    "name": "test",
-                                    "kind": 1,
-                                    "startTimeUnixNano": "1234567890",
-                                    "endTimeUnixNano": "1234567891",
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-        }
+        import copy
 
-        response = client.post("/v1/traces", json=invalid_json_data)
+        # Use fixture data and modify just the traceId to be invalid
+        invalid_data = copy.deepcopy(json_traces_data["data"])
+        invalid_data["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["traceId"] = "invalid_hex_id"
+
+        response = client.post("/v1/traces", json=invalid_data)
 
         assert response.status_code == 422
         data = response.json()
-        assert "detail" in data
+        # Should have OTLP Status format
+        assert "code" in data
+        assert data["code"] == 3  # INVALID_ARGUMENT
+        assert "message" in data
+        assert "Validation error" in data["message"]
 
     @pytest.mark.unit
     def test_error_response_consistency_across_endpoints(self, client):

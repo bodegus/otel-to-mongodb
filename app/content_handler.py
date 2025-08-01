@@ -85,29 +85,12 @@ class ContentTypeHandler:
                 return OTELLogsData(**json_data)
             raise ValueError(f"Unknown data type: {data_type}")
 
-        except ValidationError as e:
-            logger.error("JSON validation failed", error=str(e), data_type=data_type)
-            # Re-raise ValidationError as HTTPException with 422 status to match FastAPI behavior
-            # Convert validation errors to JSON-serializable format
-            detail = []
-            for error in e.errors():
-                error_dict = dict(error)
-                # Convert non-serializable objects to strings
-                if "ctx" in error_dict and isinstance(error_dict["ctx"], dict):
-                    for key, value in error_dict["ctx"].items():
-                        if not isinstance(
-                            value, str | int | float | bool | list | dict | type(None)
-                        ):
-                            error_dict["ctx"][key] = str(value)
-                detail.append(error_dict)
-
-            raise HTTPException(
-                status_code=422,
-                detail=detail,
-            ) from e
+        except ValidationError:
+            logger.error("JSON validation failed", data_type=data_type, exc_info=True)
+            raise  # Let the exception handler in main.py handle it
         except (ValueError, UnicodeDecodeError) as e:
             logger.error("JSON parsing failed", error=str(e), data_type=data_type)
-            # JSON decode errors should be 422 to match FastAPI behavior
+            # For JSON parse errors, we should return 422 to match FastAPI's behavior
             raise HTTPException(
                 status_code=422,
                 detail=f"Invalid JSON: {e!s}",
@@ -116,10 +99,7 @@ class ContentTypeHandler:
             logger.error(
                 "Unexpected error parsing JSON", error=str(e), data_type=data_type, exc_info=True
             )
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid JSON data: {e!s}",
-            ) from e
+            raise  # Let the general exception handler deal with it
 
     async def _parse_protobuf_data(
         self,
@@ -143,10 +123,9 @@ class ContentTypeHandler:
                 return self.protobuf_parser.parse_logs(raw_data)
             raise ValueError(f"Unknown data type: {data_type}")
 
-        except ProtobufParsingError as e:
-            logger.error("Protobuf parsing failed", error=str(e), data_type=data_type)
-            # Re-raise ProtobufParsingError to be caught by the custom exception handler
-            raise
+        except ProtobufParsingError:
+            logger.error("Protobuf parsing failed", data_type=data_type, exc_info=True)
+            raise  # Let the exception handler in main.py handle it
         except Exception as e:
             logger.error(
                 "Unexpected error parsing protobuf",
@@ -154,10 +133,7 @@ class ContentTypeHandler:
                 data_type=data_type,
                 exc_info=True,
             )
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid protobuf data: {e!s}",
-            ) from e
+            raise  # Let the general exception handler deal with it
 
     def create_unsupported_media_type_response(self, content_type: str) -> JSONResponse:
         """Create HTTP 415 Unsupported Media Type response."""
