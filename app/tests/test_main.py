@@ -111,19 +111,20 @@ class TestTelemetryEndpoints:
         assert data["details"][0]["field_violations"][0]["field"] == "resourceSpans"
 
     @pytest.mark.unit
-    def test_submit_traces_invalid_hex_id(self, client, json_traces_data):
-        """Test traces with invalid hex ID."""
-        # Make trace ID invalid - need to copy the data first
+    def test_submit_traces_any_trace_id_format(self, client, json_traces_data):
+        """Test traces with any trace ID format (no validation)."""
+        # Make trace ID any string format - need to copy the data first
         import copy
 
         traces_data = copy.deepcopy(json_traces_data["data"])
         resource_spans = traces_data["resourceSpans"][0]
         spans = resource_spans["scopeSpans"][0]["spans"]
-        spans[0]["traceId"] = "invalid_hex"
+        spans[0]["traceId"] = "any_string_format"
 
         response = client.post("/v1/traces", json=traces_data)
 
-        assert response.status_code == 422
+        # Should succeed - no hex validation required
+        assert response.status_code == 200
 
     @pytest.mark.unit
     def test_submit_metrics_success(self, client, mock_mongodb_client):

@@ -15,19 +15,25 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from google.protobuf.json_format import MessageToDict
+from google.protobuf.message import DecodeError
+from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
+from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceRequest
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from pydantic import ValidationError
 
-from .content_handler import parse_request_data
 from .models import (
     ErrorResponse,
     ExportLogsServiceResponse,
     ExportMetricsServiceResponse,
     ExportTraceServiceResponse,
+    OTELLogsData,
+    OTELMetricsData,
+    OTELTracesData,
     Status,
 )
 from .mongo_client import MongoDBClient, get_mongodb_client
 from .otel_service import OTELService
-from .protobuf_parser import ProtobufParsingError
 
 
 # Configure logging
@@ -43,6 +49,19 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
+
+
+class ProtobufParsingError(Exception):
+    """Exception raised when protobuf parsing fails."""
+
+
+def unsupported_content_type_error(content_type: str) -> HTTPException:
+    """Create HTTP 415 error for unsupported content types."""
+    return HTTPException(
+        status_code=415,
+        detail=f"Unsupported content type: {content_type}. Supported types: application/json, application/x-protobuf",
+        headers={"Accept": "application/json, application/x-protobuf"},
+    )
 
 
 @asynccontextmanager
@@ -91,6 +110,21 @@ def create_app() -> FastAPI:  # noqa: PLR0915
             ).model_dump(),
         )
 
+    @app.exception_handler(DecodeError)
+    async def decode_error_exception_handler(request: Request, exc: DecodeError):
+        """Handle protobuf decode errors with OTLP-compliant error response."""
+        logger.error("Protobuf decode error", error=str(exc), exc_info=True)
+        return JSONResponse(
+            status_code=400,
+            content=Status(
+                code=3,  # INVALID_ARGUMENT in OTLP status codes
+                message=f"Invalid protobuf data: {exc!s}",
+                details=[
+                    {"@type": "type.googleapis.com/google.rpc.BadRequest", "field_violations": []}
+                ],
+            ).model_dump(),
+        )
+
     @app.exception_handler(ValidationError)
     async def validation_exception_handler(request: Request, exc: ValidationError):
         """Handle Pydantic validation errors with OTLP-compliant error response."""
@@ -114,6 +148,24 @@ def create_app() -> FastAPI:  # noqa: PLR0915
                     }
                 ],
             ).model_dump(),
+        )
+
+    @app.exception_handler(ValueError)
+    async def json_parsing_exception_handler(request: Request, exc: ValueError):
+        """Handle JSON parsing errors (ValueError, UnicodeDecodeError)."""
+        logger.error("JSON parsing error", error=str(exc), exc_info=True)
+        return JSONResponse(
+            status_code=422,
+            content={"detail": f"Invalid JSON: {exc!s}"},
+        )
+
+    @app.exception_handler(UnicodeDecodeError)
+    async def unicode_decode_exception_handler(request: Request, exc: UnicodeDecodeError):
+        """Handle Unicode decode errors in JSON parsing."""
+        logger.error("Unicode decode error", error=str(exc), exc_info=True)
+        return JSONResponse(
+            status_code=422,
+            content={"detail": f"Invalid JSON: {exc!s}"},
         )
 
     # General exception handler
@@ -155,26 +207,36 @@ def create_app() -> FastAPI:  # noqa: PLR0915
         mongodb_client: MongoDBClient = Depends(get_mongodb_client),
     ):
         """Submit OpenTelemetry traces (JSON or protobuf format)."""
-        try:
-            # Parse request data based on content type
-            traces_data = await parse_request_data(request, "traces")
+        # Get and normalize content type
+        content_type = request.headers.get("content-type", "application/json")
+        content_type = content_type.split(";")[0].strip().lower()
 
-            service = OTELService(mongodb_client)
-            await service.process_traces(traces_data)
+        # Parse based on content type
+        if "application/json" in content_type:
+            json_data = await request.json()
+            traces_data = OTELTracesData(**json_data)
+        elif "application/x-protobuf" in content_type:
+            raw_data = await request.body()
+            if not raw_data:
+                raise ProtobufParsingError("Empty protobuf data")
 
-            # Return OTLP-compliant response (success case)
-            return ExportTraceServiceResponse()
+            # Parse protobuf directly using Google's MessageToDict
+            pb_request = ExportTraceServiceRequest()
+            pb_request.ParseFromString(raw_data)
+            traces_dict = MessageToDict(
+                pb_request,
+                preserving_proto_field_name=False,  # Use camelCase for Pydantic aliases
+                use_integers_for_enums=True,
+            )
+            traces_data = OTELTracesData(**traces_dict)
+        else:
+            raise unsupported_content_type_error(content_type)
 
-        except HTTPException:
-            # Let HTTPExceptions (like 422, 415) propagate to FastAPI
-            raise
-        except (ProtobufParsingError, ValidationError):
-            # Let these exceptions propagate to their custom handlers
-            raise
-        except Exception as e:
-            logger.error("Failed to process traces", error=str(e))
-            error_msg = f"Internal server error: {e!s}"
-            return JSONResponse(status_code=500, content=Status(message=error_msg).model_dump())
+        service = OTELService(mongodb_client)
+        await service.process_traces(traces_data)
+
+        # Return OTLP-compliant response (success case)
+        return ExportTraceServiceResponse()
 
     @app.post("/v1/metrics", response_model=ExportMetricsServiceResponse)
     async def submit_metrics(
@@ -182,26 +244,36 @@ def create_app() -> FastAPI:  # noqa: PLR0915
         mongodb_client: MongoDBClient = Depends(get_mongodb_client),
     ):
         """Submit OpenTelemetry metrics (JSON or protobuf format)."""
-        try:
-            # Parse request data based on content type
-            metrics_data = await parse_request_data(request, "metrics")
+        # Get and normalize content type
+        content_type = request.headers.get("content-type", "application/json")
+        content_type = content_type.split(";")[0].strip().lower()
 
-            service = OTELService(mongodb_client)
-            await service.process_metrics(metrics_data)
+        # Parse based on content type
+        if "application/json" in content_type:
+            json_data = await request.json()
+            metrics_data = OTELMetricsData(**json_data)
+        elif "application/x-protobuf" in content_type:
+            raw_data = await request.body()
+            if not raw_data:
+                raise ProtobufParsingError("Empty protobuf data")
 
-            # Return OTLP-compliant response (success case)
-            return ExportMetricsServiceResponse()
+            # Parse protobuf directly using Google's MessageToDict
+            pb_request = ExportMetricsServiceRequest()
+            pb_request.ParseFromString(raw_data)
+            metrics_dict = MessageToDict(
+                pb_request,
+                preserving_proto_field_name=False,  # Use camelCase for Pydantic aliases
+                use_integers_for_enums=True,
+            )
+            metrics_data = OTELMetricsData(**metrics_dict)
+        else:
+            raise unsupported_content_type_error(content_type)
 
-        except HTTPException:
-            # Let HTTPExceptions (like 422, 415) propagate to FastAPI
-            raise
-        except (ProtobufParsingError, ValidationError):
-            # Let these exceptions propagate to their custom handlers
-            raise
-        except Exception as e:
-            logger.error("Failed to process metrics", error=str(e))
-            error_msg = f"Internal server error: {e!s}"
-            return JSONResponse(status_code=500, content=Status(message=error_msg).model_dump())
+        service = OTELService(mongodb_client)
+        await service.process_metrics(metrics_data)
+
+        # Return OTLP-compliant response (success case)
+        return ExportMetricsServiceResponse()
 
     @app.post("/v1/logs", response_model=ExportLogsServiceResponse)
     async def submit_logs(
@@ -209,26 +281,36 @@ def create_app() -> FastAPI:  # noqa: PLR0915
         mongodb_client: MongoDBClient = Depends(get_mongodb_client),
     ):
         """Submit OpenTelemetry logs (JSON or protobuf format)."""
-        try:
-            # Parse request data based on content type
-            logs_data = await parse_request_data(request, "logs")
+        # Get and normalize content type
+        content_type = request.headers.get("content-type", "application/json")
+        content_type = content_type.split(";")[0].strip().lower()
 
-            service = OTELService(mongodb_client)
-            await service.process_logs(logs_data)
+        # Parse based on content type
+        if "application/json" in content_type:
+            json_data = await request.json()
+            logs_data = OTELLogsData(**json_data)
+        elif "application/x-protobuf" in content_type:
+            raw_data = await request.body()
+            if not raw_data:
+                raise ProtobufParsingError("Empty protobuf data")
 
-            # Return OTLP-compliant response (success case)
-            return ExportLogsServiceResponse()
+            # Parse protobuf directly using Google's MessageToDict
+            pb_request = ExportLogsServiceRequest()
+            pb_request.ParseFromString(raw_data)
+            logs_dict = MessageToDict(
+                pb_request,
+                preserving_proto_field_name=False,  # Use camelCase for Pydantic aliases
+                use_integers_for_enums=True,
+            )
+            logs_data = OTELLogsData(**logs_dict)
+        else:
+            raise unsupported_content_type_error(content_type)
 
-        except HTTPException:
-            # Let HTTPExceptions (like 422, 415) propagate to FastAPI
-            raise
-        except (ProtobufParsingError, ValidationError):
-            # Let these exceptions propagate to their custom handlers
-            raise
-        except Exception as e:
-            logger.error("Failed to process logs", error=str(e))
-            error_msg = f"Internal server error: {e!s}"
-            return JSONResponse(status_code=500, content=Status(message=error_msg).model_dump())
+        service = OTELService(mongodb_client)
+        await service.process_logs(logs_data)
+
+        # Return OTLP-compliant response (success case)
+        return ExportLogsServiceResponse()
 
     return app
 

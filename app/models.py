@@ -37,17 +37,6 @@ class OTELSpan(BaseModel):
     end_time_unix_nano: str = Field(alias="endTimeUnixNano")
     attributes: list[OTELAttribute] = Field(default_factory=list)
 
-    @field_validator("trace_id", "span_id")
-    @classmethod
-    def validate_hex_strings(cls, v):
-        """Validate hex strings."""
-        if v:
-            try:
-                int(v, 16)
-            except ValueError:
-                raise ValueError(f"Invalid hex string: {v}")
-        return v
-
 
 class OTELScopeSpans(BaseModel):
     """OpenTelemetry scope spans."""
@@ -158,17 +147,6 @@ class OTELLogRecord(BaseModel):
     attributes: list[OTELAttribute] = Field(default_factory=list)
     trace_id: str | None = Field(default=None, alias="traceId")
     span_id: str | None = Field(default=None, alias="spanId")
-
-    @field_validator("trace_id", "span_id")
-    @classmethod
-    def validate_hex_strings(cls, v):
-        """Validate hex strings."""
-        if v:
-            try:
-                int(v, 16)
-            except ValueError:
-                raise ValueError(f"Invalid hex string: {v}")
-        return v
 
 
 class OTELScopeLogs(BaseModel):

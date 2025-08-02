@@ -26,7 +26,8 @@ class OTELService:
 
         # Convert to dict and count records
         data_dict = traces_data.model_dump(by_alias=True)
-        record_count = self._count_spans(data_dict)
+        count_keys = ("resourceSpans", "scopeSpans", "spans")
+        record_count = self._count_records(data_dict, count_keys)
 
         logger.info("Processing traces", request_id=request_id, record_count=record_count)
 
@@ -55,7 +56,8 @@ class OTELService:
         start_time = time.time()
         # Convert to dict and count records
         data_dict = metrics_data.model_dump(by_alias=True)
-        record_count = self._count_metrics(data_dict)
+        count_keys = ("resourceMetrics", "scopeMetrics", "metrics")
+        record_count = self._count_records(data_dict, count_keys)
 
         logger.info("Processing metrics", request_id=request_id, record_count=record_count)
 
@@ -85,7 +87,8 @@ class OTELService:
 
         # Convert to dict and count records
         data_dict = logs_data.model_dump(by_alias=True)
-        record_count = self._count_log_records(data_dict)
+        count_keys = ("resourceLogs", "scopeLogs", "logRecords")
+        record_count = self._count_records(data_dict, count_keys)
 
         logger.info("Processing logs", request_id=request_id, record_count=record_count)
 
@@ -107,26 +110,11 @@ class OTELService:
             document_id=result["document_id"],
         )
 
-    def _count_spans(self, traces_data: dict[str, Any]) -> int:
-        """Count spans in traces data."""
+    def _count_records(self, data: dict[str, Any], count_keys: tuple[str, str, str]) -> int:
+        """Count records in telemetry data using the provided key hierarchy."""
+        resource_key, scope_key, record_key = count_keys
         count = 0
-        for resource_span in traces_data.get("resourceSpans", []):
-            for scope_span in resource_span.get("scopeSpans", []):
-                count += len(scope_span.get("spans", []))
-        return count
-
-    def _count_metrics(self, metrics_data: dict[str, Any]) -> int:
-        """Count metrics in metrics data."""
-        count = 0
-        for resource_metric in metrics_data.get("resourceMetrics", []):
-            for scope_metric in resource_metric.get("scopeMetrics", []):
-                count += len(scope_metric.get("metrics", []))
-        return count
-
-    def _count_log_records(self, logs_data: dict[str, Any]) -> int:
-        """Count log records in logs data."""
-        count = 0
-        for resource_log in logs_data.get("resourceLogs", []):
-            for scope_log in resource_log.get("scopeLogs", []):
-                count += len(scope_log.get("logRecords", []))
+        for resource_item in data.get(resource_key, []):
+            for scope_item in resource_item.get(scope_key, []):
+                count += len(scope_item.get(record_key, []))
         return count

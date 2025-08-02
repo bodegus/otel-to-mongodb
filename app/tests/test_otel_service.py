@@ -114,17 +114,20 @@ class TestOTELService:
     @pytest.mark.unit
     def test_count_spans(self, otel_service, json_traces_data):
         """Test span counting using unified traces fixture."""
-        count = otel_service._count_spans(json_traces_data["data"])
+        count_keys = ("resourceSpans", "scopeSpans", "spans")
+        count = otel_service._count_records(json_traces_data["data"], count_keys)
         assert count == json_traces_data["expected_count"]
 
     @pytest.mark.unit
     def test_count_metrics(self, otel_service, json_metrics_data):
         """Test metrics counting using unified metrics fixture."""
-        count = otel_service._count_metrics(json_metrics_data["data"])
+        count_keys = ("resourceMetrics", "scopeMetrics", "metrics")
+        count = otel_service._count_records(json_metrics_data["data"], count_keys)
         assert count == json_metrics_data["expected_count"]
 
     @pytest.mark.unit
     def test_count_log_records(self, otel_service, json_logs_data):
         """Test log records counting using unified logs fixture."""
-        count = otel_service._count_log_records(json_logs_data["data"])
+        count_keys = ("resourceLogs", "scopeLogs", "logRecords")
+        count = otel_service._count_records(json_logs_data["data"], count_keys)
         assert count == json_logs_data["expected_count"]
