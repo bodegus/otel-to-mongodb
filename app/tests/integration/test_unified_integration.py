@@ -70,13 +70,15 @@ async def parse_protobuf_data_via_handler(binary_data, data_type):
 async def process_telemetry_data(context, telemetry_data, data_type, request_id):
     """Helper to process telemetry data through the service layer."""
     if data_type == "traces":
-        return await context.otel_service.process_traces(telemetry_data, request_id=request_id)
+        await context.otel_service.process_traces(telemetry_data, request_id=request_id)
     elif data_type == "metrics":
-        return await context.otel_service.process_metrics(telemetry_data, request_id=request_id)
+        await context.otel_service.process_metrics(telemetry_data, request_id=request_id)
     elif data_type == "logs":
-        return await context.otel_service.process_logs(telemetry_data, request_id=request_id)
+        await context.otel_service.process_logs(telemetry_data, request_id=request_id)
     else:
         raise ValueError(f"Unknown data type: {data_type}")
+
+    # Success indicated by no exception raised
 
 
 def extract_service_names_from_fixture_data(fixture_data, data_type):
@@ -178,13 +180,9 @@ class TestUnifiedOTELIntegration:
 
         # Process data
         request_id = f"unified-{data_type}-{content_type.split('/')[-1]}"
-        result = await process_telemetry_data(context, telemetry_data, data_type, request_id)
+        await process_telemetry_data(context, telemetry_data, data_type, request_id)
 
-        # Validate results
-        assert result.success is True
-        assert result.data_type == data_type
-        assert result.records_processed == expected_count
-        assert result.document_id is not None
+        # Success indicated by no exception raised
 
         # Verify MongoDB storage using specific request_id
         documents = await context.verify_telemetry_data(
@@ -242,19 +240,14 @@ class TestFormatConsistencyIntegration:
 
         model_class = TELEMETRY_MODELS[data_type]
         json_telemetry = model_class(**json_data["data"])
-        json_result = await process_telemetry_data(
-            context, json_telemetry, data_type, json_request_id
-        )
+        await process_telemetry_data(context, json_telemetry, data_type, json_request_id)
 
         protobuf_telemetry = await parse_protobuf_data_via_handler(
             protobuf_data["binary_data"], data_type
         )
-        protobuf_result = await process_telemetry_data(
-            context, protobuf_telemetry, data_type, protobuf_request_id
-        )
+        await process_telemetry_data(context, protobuf_telemetry, data_type, protobuf_request_id)
 
-        # Validate consistency
-        assert json_result.records_processed == protobuf_result.records_processed
+        # Validate consistency - both succeeded (no exceptions)
         assert json_data["expected_count"] == protobuf_data["expected_count"]
 
         # Verify both documents using specific request_ids
@@ -293,28 +286,21 @@ class TestMixedWorkflowsIntegration:
 
         # Process JSON traces
         traces_model = OTELTracesData(**json_traces_data["data"])
-        traces_result = await context.otel_service.process_traces(
-            traces_model, request_id="mixed-json-traces"
-        )
+        await context.otel_service.process_traces(traces_model, request_id="mixed-json-traces")
 
         # Process protobuf metrics
         metrics_model = await parse_protobuf_data_via_handler(
             protobuf_metrics_data["binary_data"], "metrics"
         )
-        metrics_result = await context.otel_service.process_metrics(
+        await context.otel_service.process_metrics(
             metrics_model, request_id="mixed-protobuf-metrics"
         )
 
         # Process JSON logs
         logs_model = OTELLogsData(**json_logs_data["data"])
-        logs_result = await context.otel_service.process_logs(
-            logs_model, request_id="mixed-json-logs"
-        )
+        await context.otel_service.process_logs(logs_model, request_id="mixed-json-logs")
 
-        # Verify all succeeded
-        assert traces_result.success is True
-        assert metrics_result.success is True
-        assert logs_result.success is True
+        # All succeeded (no exceptions raised)
 
         # Verify each stored in correct collection and validate against fixture data
         traces_docs = await context.verify_telemetry_data(
@@ -340,22 +326,12 @@ class TestMixedWorkflowsIntegration:
     async def test_multiple_requests_same_type(self, otel_integration_context, json_traces_data):
         """Test multiple requests of the same type to verify database isolation."""
         context = otel_integration_context
-        expected_count = json_traces_data["expected_count"]
 
         # Process the same traces data multiple times
-        results = []
         for i in range(3):
             traces_data = OTELTracesData(**json_traces_data["data"])
-            result = await context.otel_service.process_traces(
-                traces_data, request_id=f"multi-request-{i}"
-            )
-
-            # Verify each result matches fixture expectations
-            assert result.success is True
-            assert result.data_type == "traces"
-            assert result.records_processed == expected_count
-            assert result.document_id is not None
-            results.append(result)
+            await context.otel_service.process_traces(traces_data, request_id=f"multi-request-{i}")
+            # Success indicated by no exception raised
 
         # Verify each document individually by request_id for better isolation
         expected_request_ids = [f"multi-request-{i}" for i in range(3)]
@@ -426,13 +402,9 @@ class TestProtobufSpecificIntegration:
         )
 
         # Process through service
-        result = await context.otel_service.process_traces(
-            traces_data, request_id="large-protobuf-test"
-        )
+        await context.otel_service.process_traces(traces_data, request_id="large-protobuf-test")
 
-        # Verify processing succeeded with fixture expectations
-        assert result.success is True
-        assert result.records_processed == large_protobuf_traces_data["expected_count"]
+        # Success indicated by no exception raised
 
         # Verify MongoDB storage matches fixture expectations
         documents = await context.verify_telemetry_data(
@@ -443,7 +415,8 @@ class TestProtobufSpecificIntegration:
         # Validate against fixture data
         validate_stored_data_against_fixture(stored_doc, large_protobuf_traces_data, "traces")
 
-        print(f"✅ Large protobuf: {result.records_processed} spans validated against fixture data")
+        expected_count = large_protobuf_traces_data["expected_count"]
+        print(f"✅ Large protobuf: {expected_count} spans validated against fixture data")
 
 
 class TestDatabaseFailoverIntegration:
@@ -458,15 +431,9 @@ class TestDatabaseFailoverIntegration:
 
         # Process data using fixture
         traces_data = OTELTracesData(**json_traces_data["data"])
-        result = await context.otel_service.process_traces(
-            traces_data, request_id="failover-primary-only"
-        )
+        await context.otel_service.process_traces(traces_data, request_id="failover-primary-only")
 
-        # Should succeed with primary only
-        assert result.success is True
-        assert result.primary_storage is True
-        assert result.secondary_storage is False
-        assert result.records_processed == json_traces_data["expected_count"]
+        # Success indicated by no exception raised (primary only working)
 
         # Verify data was stored and matches fixture expectations
         documents = await context.verify_telemetry_data(

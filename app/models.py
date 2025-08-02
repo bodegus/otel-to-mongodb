@@ -177,69 +177,10 @@ class OTELLogsData(BaseModel):
         return v
 
 
-# Response Models
-class TelemetryResponse(BaseModel):
-    """Response for telemetry data submission."""
-
-    success: bool = True
-    message: str
-    data_type: str
-    records_processed: int
-    primary_storage: bool
-    secondary_storage: bool
-    processing_time_ms: float
-    document_id: str | None = None
-
-
-# OTLP-Compliant Response Models (as per OTLP specification)
-class ExportTracePartialSuccess(BaseModel):
-    """OTLP Export trace partial success."""
-
-    rejected_spans: int = Field(default=0, alias="rejectedSpans")
-    error_message: str = Field(default="", alias="errorMessage")
-
-
-class ExportMetricsPartialSuccess(BaseModel):
-    """OTLP Export metrics partial success."""
-
-    rejected_data_points: int = Field(default=0, alias="rejectedDataPoints")
-    error_message: str = Field(default="", alias="errorMessage")
-
-
-class ExportLogsPartialSuccess(BaseModel):
-    """OTLP Export logs partial success."""
-
-    rejected_log_records: int = Field(default=0, alias="rejectedLogRecords")
-    error_message: str = Field(default="", alias="errorMessage")
-
-
-class ExportTraceServiceResponse(BaseModel):
-    """OTLP-compliant trace export response."""
-
-    partial_success: ExportTracePartialSuccess | None = Field(default=None, alias="partialSuccess")
-
-    def model_dump(self, **kwargs):
-        """Return model as dict, excluding None values by default for OTLP compliance."""
-        kwargs.setdefault("exclude_none", True)
-        return super().model_dump(**kwargs)
-
-
-class ExportMetricsServiceResponse(BaseModel):
-    """OTLP-compliant metrics export response."""
-
-    model_config = {"exclude_none": True}
-
-    partial_success: ExportMetricsPartialSuccess | None = Field(
-        default=None, alias="partialSuccess"
-    )
-
-
-class ExportLogsServiceResponse(BaseModel):
-    """OTLP-compliant logs export response."""
-
-    model_config = {"exclude_none": True}
-
-    partial_success: ExportLogsPartialSuccess | None = Field(default=None, alias="partialSuccess")
+# OTLP Response Documentation
+# According to the OTLP specification, successful responses return an empty JSON object {}
+# Partial success responses would include a partialSuccess field, but since this implementation
+# always processes all data or fails entirely, we simply return {} for success cases
 
 
 class Status(BaseModel):

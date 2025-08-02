@@ -91,11 +91,8 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        # OTLP-compliant response should be empty on success
-        # or contain only partialSuccess field if there were issues
-        assert isinstance(data, dict)
-        # For successful requests, partialSuccess should be None/absent
-        assert data.get("partialSuccess") is None
+        # OTLP-compliant response should be empty dict on success
+        assert data == {}
 
     @pytest.mark.unit
     def test_submit_traces_validation_error(self, client):
@@ -158,9 +155,8 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        # OTLP-compliant response should be empty on success
-        assert isinstance(data, dict)
-        assert data.get("partialSuccess") is None
+        # OTLP-compliant response should be empty dict on success
+        assert data == {}
 
     @pytest.mark.unit
     def test_submit_logs_success(self, client, mock_mongodb_client):
@@ -189,9 +185,8 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        # OTLP-compliant response should be empty on success
-        assert isinstance(data, dict)
-        assert data.get("partialSuccess") is None
+        # OTLP-compliant response should be empty dict on success
+        assert data == {}
 
     @pytest.mark.unit
     def test_request_id_header(self, client, json_traces_data, mock_mongodb_client):
@@ -201,7 +196,7 @@ class TestTelemetryEndpoints:
         assert response.status_code == 200
         # Just verify we get a successful OTLP response
         data = response.json()
-        assert isinstance(data, dict)
+        assert data == {}
 
     @pytest.mark.unit
     def test_invalid_json_data(self, client):
@@ -231,7 +226,7 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, dict)
+        assert data == {}
 
     # Protobuf Support Tests
     @pytest.mark.unit
@@ -247,9 +242,8 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        # OTLP-compliant response should be empty on success
-        assert isinstance(data, dict)
-        assert data.get("partialSuccess") is None
+        # OTLP-compliant response should be empty dict on success
+        assert data == {}
 
     @pytest.mark.unit
     def test_submit_protobuf_metrics_success(
@@ -264,9 +258,8 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        # OTLP-compliant response should be empty on success
-        assert isinstance(data, dict)
-        assert data.get("partialSuccess") is None
+        # OTLP-compliant response should be empty dict on success
+        assert data == {}
 
     @pytest.mark.unit
     def test_submit_protobuf_logs_success(self, client, protobuf_logs_data, mock_mongodb_client):
@@ -279,9 +272,8 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        # OTLP-compliant response should be empty on success
-        assert isinstance(data, dict)
-        assert data.get("partialSuccess") is None
+        # OTLP-compliant response should be empty dict on success
+        assert data == {}
 
     @pytest.mark.unit
     def test_protobuf_malformed_data_error(self, client, malformed_protobuf_data):
@@ -390,7 +382,7 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, dict)
+        assert data == {}
 
     @pytest.mark.unit
     def test_mixed_requests_same_endpoint(
@@ -419,8 +411,7 @@ class TestTelemetryEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, dict)
-        assert data.get("partialSuccess") is None
+        assert data == {}
 
         # Verify MongoDB client was called correctly
         mock_mongodb_client.write_telemetry_data.assert_called_once()

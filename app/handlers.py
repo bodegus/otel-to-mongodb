@@ -1,7 +1,7 @@
 """Exception handlers for the FastAPI application."""
 
 import structlog
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from google.protobuf.message import DecodeError
 from pydantic import ValidationError
@@ -14,6 +14,15 @@ logger = structlog.get_logger()
 
 class ProtobufParsingError(Exception):
     """Exception raised when protobuf parsing fails."""
+
+
+def unsupported_content_type_error(content_type: str) -> HTTPException:
+    """Create HTTP 415 error for unsupported content types."""
+    return HTTPException(
+        status_code=415,
+        detail=f"Unsupported content type: {content_type}. Supported types: application/json, application/x-protobuf",
+        headers={"Accept": "application/json, application/x-protobuf"},
+    )
 
 
 async def protobuf_parsing_exception_handler(request: Request, exc: ProtobufParsingError):

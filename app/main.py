@@ -13,21 +13,18 @@ import logging
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from google.protobuf.json_format import MessageToDict
 from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceRequest
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
-from .handlers import ProtobufParsingError, register_exception_handlers
-from .models import (
-    ExportLogsServiceResponse,
-    ExportMetricsServiceResponse,
-    ExportTraceServiceResponse,
-    OTELLogsData,
-    OTELMetricsData,
-    OTELTracesData,
+from .handlers import (
+    ProtobufParsingError,
+    register_exception_handlers,
+    unsupported_content_type_error,
 )
+from .models import OTELLogsData, OTELMetricsData, OTELTracesData
 from .mongo_client import MongoDBClient, get_mongodb_client
 from .otel_service import OTELService
 
@@ -45,15 +42,6 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
-
-
-def unsupported_content_type_error(content_type: str) -> HTTPException:
-    """Create HTTP 415 error for unsupported content types."""
-    return HTTPException(
-        status_code=415,
-        detail=f"Unsupported content type: {content_type}. Supported types: application/json, application/x-protobuf",
-        headers={"Accept": "application/json, application/x-protobuf"},
-    )
 
 
 @asynccontextmanager
@@ -111,13 +99,13 @@ def create_app() -> FastAPI:  # noqa: PLR0915
         }
 
     # Telemetry endpoints
-    @app.post("/v1/traces", response_model=ExportTraceServiceResponse)
+    @app.post("/v1/traces")
     async def submit_traces(
         request: Request,
         mongodb_client: MongoDBClient = Depends(get_mongodb_client),
     ):
         """Submit OpenTelemetry traces (JSON or protobuf format)."""
-        # Get and normalize content type
+        # Get and normalize content type, default to json
         content_type = request.headers.get("content-type", "application/json")
         content_type = content_type.split(";")[0].strip().lower()
 
@@ -146,9 +134,9 @@ def create_app() -> FastAPI:  # noqa: PLR0915
         await service.process_traces(traces_data)
 
         # Return OTLP-compliant response (success case)
-        return ExportTraceServiceResponse()
+        return {}
 
-    @app.post("/v1/metrics", response_model=ExportMetricsServiceResponse)
+    @app.post("/v1/metrics")
     async def submit_metrics(
         request: Request,
         mongodb_client: MongoDBClient = Depends(get_mongodb_client),
@@ -183,9 +171,9 @@ def create_app() -> FastAPI:  # noqa: PLR0915
         await service.process_metrics(metrics_data)
 
         # Return OTLP-compliant response (success case)
-        return ExportMetricsServiceResponse()
+        return {}
 
-    @app.post("/v1/logs", response_model=ExportLogsServiceResponse)
+    @app.post("/v1/logs")
     async def submit_logs(
         request: Request,
         mongodb_client: MongoDBClient = Depends(get_mongodb_client),
@@ -220,7 +208,7 @@ def create_app() -> FastAPI:  # noqa: PLR0915
         await service.process_logs(logs_data)
 
         # Return OTLP-compliant response (success case)
-        return ExportLogsServiceResponse()
+        return {}
 
     return app
 

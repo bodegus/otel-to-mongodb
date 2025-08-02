@@ -47,7 +47,8 @@ class TestOTELService:
         # Convert dict to Pydantic model - use data from fixture
         traces_data = OTELTracesData(**json_traces_data["data"])
 
-        result = await otel_service.process_traces(traces_data)
+        # Should not raise any exceptions (success case)
+        await otel_service.process_traces(traces_data)
 
         # Verify the call was made
         mock_mongodb_client.write_telemetry_data.assert_called_once()
@@ -58,11 +59,6 @@ class TestOTELService:
         assert "data" in call_args[1]
         assert call_args[1]["request_id"] is None
 
-        # Verify return values using expected count from fixture
-        assert result.success is True
-        assert result.data_type == "traces"
-        assert result.records_processed == json_traces_data["expected_count"]
-
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_process_metrics_success(
@@ -72,7 +68,8 @@ class TestOTELService:
         # Convert dict to Pydantic model - use data from fixture
         metrics_data = OTELMetricsData(**json_metrics_data["data"])
 
-        result = await otel_service.process_metrics(metrics_data)
+        # Should not raise any exceptions (success case)
+        await otel_service.process_metrics(metrics_data)
 
         # Verify the call was made
         mock_mongodb_client.write_telemetry_data.assert_called_once()
@@ -83,11 +80,6 @@ class TestOTELService:
         assert "data" in call_args[1]
         assert call_args[1]["request_id"] is None
 
-        # Verify return values using expected count from fixture
-        assert result.success is True
-        assert result.data_type == "metrics"
-        assert result.records_processed == json_metrics_data["expected_count"]
-
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_process_logs_success(self, otel_service, mock_mongodb_client, json_logs_data):
@@ -95,7 +87,8 @@ class TestOTELService:
         # Convert dict to Pydantic model - use data from fixture
         logs_data = OTELLogsData(**json_logs_data["data"])
 
-        result = await otel_service.process_logs(logs_data)
+        # Should not raise any exceptions (success case)
+        await otel_service.process_logs(logs_data)
 
         # Verify the call was made
         mock_mongodb_client.write_telemetry_data.assert_called_once()
@@ -105,11 +98,6 @@ class TestOTELService:
         assert call_args[1]["data_type"] == "logs"
         assert "data" in call_args[1]
         assert call_args[1]["request_id"] is None
-
-        # Verify return values using expected count from fixture
-        assert result.success is True
-        assert result.data_type == "logs"
-        assert result.records_processed == json_logs_data["expected_count"]
 
     @pytest.mark.unit
     def test_count_spans(self, otel_service, json_traces_data):
