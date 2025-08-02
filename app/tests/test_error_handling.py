@@ -3,51 +3,6 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import create_app
-from app.mongo_client import get_mongodb_client
-
-
-# Import protobuf fixtures
-
-
-@pytest.fixture
-def mock_mongodb_client():
-    """Mock MongoDB client."""
-    from unittest.mock import AsyncMock, MagicMock
-
-    client = MagicMock()
-    client.write_telemetry_data = AsyncMock(
-        return_value={
-            "success": True,
-            "primary_success": True,
-            "secondary_success": False,
-            "document_id": "test_id_123",
-        }
-    )
-    client.health_check = AsyncMock(
-        return_value={
-            "primary": {"connected": True, "error": None, "configured": True},
-            "secondary": {"connected": False, "error": None, "configured": False},
-        }
-    )
-    client.local_client = MagicMock()
-    client.local_db_name = "test_db"
-    return client
-
-
-@pytest.fixture
-def test_app(mock_mongodb_client):
-    """Test FastAPI app with mocked dependencies."""
-    app = create_app()
-    app.dependency_overrides[get_mongodb_client] = lambda: mock_mongodb_client
-    return app
-
-
-@pytest.fixture
-def client(test_app):
-    """Test client."""
-    return TestClient(test_app)
-
 
 class TestProtobufErrorHandling:
     """Test error handling for protobuf-specific scenarios."""

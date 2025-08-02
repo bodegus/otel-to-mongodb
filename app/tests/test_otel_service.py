@@ -1,35 +1,13 @@
 """Tests for OTEL service."""
 
-# Ignore fixture redefinition warnings (imports vs function parameters)
-
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
 
 from app.models import OTELLogsData, OTELMetricsData, OTELTracesData
 from app.otel_service import OTELService
 
 
-# Use unified fixtures from conftest.py - no explicit imports needed
-# Fixtures: json_traces_data, json_metrics_data, json_logs_data are automatically available
-
-
 class TestOTELService:
     """Test OTEL service functionality."""
-
-    @pytest.fixture
-    def mock_mongodb_client(self):
-        """Mock MongoDB client."""
-        client = MagicMock()
-        client.write_telemetry_data = AsyncMock(
-            return_value={
-                "success": True,
-                "primary_success": True,
-                "secondary_success": True,
-                "document_id": "test_id_123",
-            }
-        )
-        return client
 
     @pytest.fixture
     def otel_service(self, mock_mongodb_client):
