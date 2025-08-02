@@ -259,3 +259,80 @@ class TestErrorMessageClarity:
         error_text = str(data)
         assert "application/json" in error_text
         assert "application/x-protobuf" in error_text
+
+
+class TestEdgeCaseErrorHandlers:
+    """Test edge case error handlers that are rarely triggered."""
+
+    @pytest.mark.unit
+    def test_unicode_decode_error_handler(self, test_app):
+        """Test unicode decode error handling by directly triggering UnicodeDecodeError."""
+        from unittest.mock import patch
+
+        client = TestClient(test_app)
+
+        # Mock request.json() to raise UnicodeDecodeError
+        with patch("starlette.requests.Request.json") as mock_json:
+            mock_json.side_effect = UnicodeDecodeError(
+                "utf-8", b"\xff\xfe", 0, 1, "invalid start byte"
+            )
+
+            response = client.post(
+                "/v1/traces",
+                json={"dummy": "data"},  # This will be ignored due to mock
+                headers={"Content-Type": "application/json"},
+            )
+
+            # Should return 422 for unicode decode error
+            assert response.status_code == 422
+            data = response.json()
+            assert "detail" in data
+            assert "JSON" in data["detail"]
+
+    @pytest.mark.unit
+    def test_global_exception_handler_via_otel_service_failure(self, test_app, mock_mongodb_client):
+        """Test global exception handler by causing an unexpected error in OTELService."""
+        from unittest.mock import patch
+
+        # Use TestClient with raise_server_exceptions=False to capture 500 responses
+        client = TestClient(test_app, raise_server_exceptions=False)
+
+        # Mock the OTELService to raise an unexpected exception during processing
+        with patch("app.main.OTELService") as mock_otel_service_class:
+            mock_service = mock_otel_service_class.return_value
+            mock_service.process_traces.side_effect = RuntimeError("Unexpected processing error")
+
+            response = client.post(
+                "/v1/traces",
+                json={
+                    "resourceSpans": [
+                        {
+                            "resource": {"attributes": []},
+                            "scopeSpans": [
+                                {
+                                    "scope": {"name": "test"},
+                                    "spans": [
+                                        {
+                                            "traceId": "123",
+                                            "spanId": "456",
+                                            "name": "test",
+                                            "kind": 1,
+                                            "startTimeUnixNano": "123",
+                                            "endTimeUnixNano": "456",
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ]
+                },
+            )
+
+            # Should return 500 for unhandled exception
+            assert response.status_code == 500
+            data = response.json()
+            assert "success" in data
+            assert data["success"] is False
+            assert "message" in data
+            assert "error_code" in data
+            assert data["error_code"] == "INTERNAL_ERROR"

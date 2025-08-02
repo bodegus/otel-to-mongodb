@@ -430,3 +430,27 @@ class TestTelemetryEndpoints:
         # FastAPI TestClient may not preserve all headers, but the error should be clear
         data = response.json()
         assert "Unsupported content type" in data["detail"]
+
+    @pytest.mark.unit
+    def test_empty_protobuf_metrics_data_error(self, client):
+        """Test empty protobuf data error for metrics endpoint."""
+        response = client.post(
+            "/v1/metrics", content=b"", headers={"Content-Type": "application/x-protobuf"}
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "message" in data
+        assert "protobuf" in data["message"].lower()
+
+    @pytest.mark.unit
+    def test_empty_protobuf_logs_data_error(self, client):
+        """Test empty protobuf data error for logs endpoint."""
+        response = client.post(
+            "/v1/logs", content=b"", headers={"Content-Type": "application/x-protobuf"}
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "message" in data
+        assert "protobuf" in data["message"].lower()
