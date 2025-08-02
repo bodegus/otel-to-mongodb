@@ -22,7 +22,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pymongo import MongoClient
 
-from app.mongo_client import MongoDBClient, get_mongodb_client
+from app.mongo_client import MongoDBClient
 from app.otel_service import OTELService
 
 # Import unified fixtures (new approach - preferred for new tests)
@@ -74,7 +74,7 @@ def test_app(mock_mongodb_client):
     from app.main import create_app
 
     app = create_app()
-    app.dependency_overrides[get_mongodb_client] = lambda: mock_mongodb_client
+    app.state.mongodb_client = mock_mongodb_client
     return app
 
 

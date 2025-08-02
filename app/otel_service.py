@@ -26,10 +26,19 @@ class OTELService:
 
         logger.info("Processing traces", request_id=request_id, record_count=record_count)
 
-        # Store in database (will raise exception on failure)
-        await self.mongodb_client.write_telemetry_data(
+        # Store in database
+        result = await self.mongodb_client.write_telemetry_data(
             data=data_dict, data_type="traces", request_id=request_id
         )
+
+        # Check write result and raise exception on failure
+        if not result.get("success", False):
+            errors = result.get("errors", [])
+            if not errors:
+                errors = [result.get("error", "Unknown error")]
+            error_msg = f"Failed to write traces data: {errors}"
+            logger.error("Database write failed", request_id=request_id, result=result)
+            raise RuntimeError(error_msg)
 
         logger.info(
             "Successfully processed traces", request_id=request_id, record_count=record_count
@@ -44,10 +53,19 @@ class OTELService:
 
         logger.info("Processing metrics", request_id=request_id, record_count=record_count)
 
-        # Store in database (will raise exception on failure)
-        await self.mongodb_client.write_telemetry_data(
+        # Store in database
+        result = await self.mongodb_client.write_telemetry_data(
             data=data_dict, data_type="metrics", request_id=request_id
         )
+
+        # Check write result and raise exception on failure
+        if not result.get("success", False):
+            errors = result.get("errors", [])
+            if not errors:
+                errors = [result.get("error", "Unknown error")]
+            error_msg = f"Failed to write metrics data: {errors}"
+            logger.error("Database write failed", request_id=request_id, result=result)
+            raise RuntimeError(error_msg)
 
         logger.info(
             "Successfully processed metrics", request_id=request_id, record_count=record_count
@@ -62,10 +80,19 @@ class OTELService:
 
         logger.info("Processing logs", request_id=request_id, record_count=record_count)
 
-        # Store in database (will raise exception on failure)
-        await self.mongodb_client.write_telemetry_data(
+        # Store in database
+        result = await self.mongodb_client.write_telemetry_data(
             data=data_dict, data_type="logs", request_id=request_id
         )
+
+        # Check write result and raise exception on failure
+        if not result.get("success", False):
+            errors = result.get("errors", [])
+            if not errors:
+                errors = [result.get("error", "Unknown error")]
+            error_msg = f"Failed to write logs data: {errors}"
+            logger.error("Database write failed", request_id=request_id, result=result)
+            raise RuntimeError(error_msg)
 
         logger.info("Successfully processed logs", request_id=request_id, record_count=record_count)
 

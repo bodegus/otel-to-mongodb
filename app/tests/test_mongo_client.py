@@ -434,6 +434,103 @@ class TestMongoDBClient:
         assert health["secondary"]["connected"] is True
         assert health["secondary"]["configured"] is True
 
+    async def test_ensure_database_setup_success(self, mongo_client):
+        """Test successful database setup with collections and indexes."""
+        mock_client = AsyncMock()
+        mock_database = AsyncMock()
+        mock_collection = AsyncMock()
+
+        # Setup mock hierarchy: client[db_name][collection_name]
+        mock_client.__getitem__.return_value = mock_database
+        mock_database.__getitem__.return_value = mock_collection
+        mock_collection.create_index = AsyncMock()
+
+        await mongo_client._ensure_database_setup(mock_client, "primary")
+
+        # Verify database access
+        mock_client.__getitem__.assert_called_with("test_db")
+
+        # Verify all OTEL collections were accessed
+        expected_collections = ["traces", "metrics", "logs"]
+        assert mock_database.__getitem__.call_count == len(expected_collections)
+
+        # Verify create_index was called for each collection
+        assert mock_collection.create_index.call_count == len(expected_collections)
+
+    async def test_ensure_database_setup_failure(self, mongo_client):
+        """Test database setup failure is handled gracefully."""
+        mock_client = AsyncMock()
+        mock_client.__getitem__.side_effect = Exception("Database access failed")
+
+        # Should not raise exception, just log warning
+        await mongo_client._ensure_database_setup(mock_client, "primary")
+
+        # Test passes if no exception is raised
+
+    async def test_ensure_indexes_success(self, mongo_client):
+        """Test successful index creation."""
+        mock_collection = AsyncMock()
+        mock_collection.create_index = AsyncMock()
+
+        await mongo_client._ensure_indexes(mock_collection, "traces", "primary")
+
+        mock_collection.create_index.assert_called_once_with(
+            "created_at", background=True, name="traces_created_at_idx"
+        )
+
+    async def test_ensure_indexes_failure(self, mongo_client):
+        """Test index creation failure is handled gracefully."""
+        mock_collection = AsyncMock()
+        mock_collection.create_index = AsyncMock(side_effect=Exception("Index creation failed"))
+
+        # Should not raise exception, just log warning
+        await mongo_client._ensure_indexes(mock_collection, "metrics", "secondary")
+
+        # Test passes if no exception is raised
+
+    async def test_database_setup_integration_with_connect(self, mongo_client):
+        """Test that database setup is called during connection."""
+        with patch.object(mongo_client, "_ensure_database_setup") as mock_setup:
+            with patch("app.mongo_client.AsyncIOMotorClient") as mock_motor_client:
+                mock_client = AsyncMock()
+                mock_client.admin.command = AsyncMock(return_value={"ok": 1})
+                mock_motor_client.return_value = mock_client
+
+                await mongo_client.connect()
+
+                # Verify setup was called for primary database
+                mock_setup.assert_called_once_with(mock_client, "primary")
+
+    async def test_database_setup_on_write_when_not_done_during_connect(self, mongo_client):
+        """Test that database setup happens on first write if not done during connection."""
+        # Simulate a client that connected but didn't complete setup
+        mock_client = AsyncMock()
+        mock_database = AsyncMock()
+        mock_collection = AsyncMock()
+        mock_insert_result = MagicMock()
+        mock_insert_result.inserted_id = "test_id_123"
+
+        # Setup mock hierarchy
+        mock_client.__getitem__.return_value = mock_database
+        mock_database.__getitem__.return_value = mock_collection
+        mock_collection.create_index = AsyncMock()
+        mock_collection.insert_one.return_value = mock_insert_result
+
+        # Set client but mark setup as incomplete
+        mongo_client.secondary_client = mock_client
+        mongo_client.secondary_setup_complete = False
+
+        # Write data
+        result = await mongo_client.write_telemetry_data(
+            data={"test": "data"}, data_type="traces", request_id="test-123"
+        )
+
+        # Verify setup was called during write
+        assert mongo_client.secondary_setup_complete is True
+        # Verify write succeeded
+        assert result["success"] is True
+        assert result["secondary_success"] is True
+
 
 @pytest.mark.unit
 class TestGetMongoDBClient:

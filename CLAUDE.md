@@ -2,7 +2,7 @@
 
 ## Overview
 
-Production-ready FastAPI service that accepts OpenTelemetry JSON data and writes to MongoDB with primary/secondary failover support.
+Production-ready FastAPI service that accepts OpenTelemetry JSON and protobuf data and writes to MongoDB with primary/secondary failover support.
 
 **Endpoints**: `/v1/traces`, `/v1/metrics`, `/v1/logs`, `/health`, `/health/detailed`
 
@@ -12,12 +12,16 @@ Production-ready FastAPI service that accepts OpenTelemetry JSON data and writes
 app/
 ├── main.py           # FastAPI application, lifespan management
 ├── models.py         # Pydantic models for OTLP data/responses
-├── mongo_client.py   # MongoDB client with primary/secondary support
-├── otel_service.py   # OTEL data processing with telemetry counting
+├── mongo_client.py   # MongoDB client with primary/secondary support + auto-initialization
+├── otel_service.py   # OTEL data processing with telemetry counting + result validation
+├── content_handler.py # Content type detection and protobuf parsing
+├── handlers.py       # Exception handlers for various error types
 └── tests/           # Unit tests (mongomock) + integration tests (Docker)
 ```
 
-**Data Flow**: FastAPI → OTELService → MongoDBClient → Primary/Secondary databases
+**Data Flow**: FastAPI → ContentHandler → OTELService → MongoDBClient → Primary/Secondary databases
+
+**Content Support**: JSON and protobuf formats for all OTEL data types (traces, metrics, logs)
 
 ## Configuration
 
@@ -28,7 +32,7 @@ Environment variables:
 
 ## Technology Stack
 
-**Core**: FastAPI, Pydantic, Motor (async MongoDB), structlog
+**Core**: FastAPI, Pydantic, Motor (async MongoDB), structlog, protobuf
 **Testing**: pytest, mongomock, Docker containers
 **Tooling**: Ruff (linting/formatting), pre-commit
 
@@ -60,7 +64,6 @@ pre-commit install
 # Code Quality
 ruff check app/ --fix              # Linting with auto-fix
 ruff format app/                   # Formatting
-mypy app/                          # Type checking
 
 # Testing
 pytest -m unit                     # Unit tests (run first)
@@ -69,14 +72,60 @@ pytest --cov=app --cov-report=html # Coverage
 
 # Development
 uvicorn app.main:app --reload --port 8000
+
+# Production Deployment
+docker build -t otel-to-mongodb:latest .
+docker run -d --name otel-to-mongodb --env-file .env -p 8083:8083 --restart unless-stopped otel-to-mongodb:latest
 ```
 
 ## Key Implementation Notes
 
-**Error Handling**: Global exception handler, graceful degradation with partial DB connectivity
-**Database**: Primary/secondary MongoDB with automatic failover
-**Logging**: Structured JSON logs with correlation IDs via structlog
-**Testing**: Unit tests with mongomock, integration tests with Docker containers
+**Database Auto-Initialization**: Automatically creates databases, collections (`traces`, `metrics`, `logs`), and indexes (`created_at`) on first connection or write
+**Error Handling**: Global exception handlers for various content types, graceful degradation with partial DB connectivity
+**Database**: Primary/secondary MongoDB with automatic failover and write result validation
+**Content Processing**: Automatic detection and parsing of JSON/protobuf formats with comprehensive error handling
+**Logging**: Structured JSON logs with correlation IDs via structlog, detailed write operation tracking
+**Testing**: Unit tests with mongomock, integration tests with Docker containers, unified fixtures for both JSON and protobuf formats
+
+## Testing Strategy & Lessons Learned
+
+### Test Coverage Layers
+1. **Unit Tests**: Fast execution with mongomock, test business logic isolation
+2. **Integration Tests**: Real MongoDB containers, test service-to-database interactions
+3. **HTTP Integration Tests**: Full FastAPI stack including lifespan, dependency injection, and app state management
+
+### Critical Testing Gap Identified
+**Issue**: Integration tests bypassed FastAPI dependency injection by directly instantiating services, missing app state management failures that occurred in production.
+
+**Root Cause**: Integration tests used `OTELService(mongo_client)` directly rather than testing the full HTTP request → FastAPI → app.state → dependency resolution flow.
+
+**Resolution**: Added HTTP-level integration tests and improved dependency injection testing to catch infrastructure layer issues.
+
+### Testing Best Practices
+- **Test the full stack**: Include HTTP endpoints, not just service methods
+- **Test framework integration**: Verify FastAPI lifespan, dependency injection, and state management
+- **Avoid "too integrated" tests**: Ensure tests cover all layers, including infrastructure/framework integration
+- **Validate production paths**: Test the exact code paths used in production deployments
+
+## Recent Enhancements
+
+### Database Auto-Initialization (v2.0)
+- **Automatic Setup**: Creates databases, collections, and indexes on first connection
+- **Dual Strategy**: Setup during connection + fallback setup on first write
+- **Performance**: `created_at` indexes for efficient time-based queries
+- **Resilience**: Graceful handling of setup failures (warnings logged, app continues)
+
+### Protobuf Support (v2.0)
+- **Dual Format**: Full support for both JSON and protobuf OTEL data
+- **Content Detection**: Automatic format detection via Content-Type headers
+- **Error Handling**: Comprehensive protobuf parsing error handling
+- **Testing**: Unified test fixtures for format consistency validation
+
+### Enhanced Error Handling (v2.0)
+- **Write Validation**: OTEL service now validates MongoDB write results
+- **Detailed Logging**: Failed writes logged with full error context
+- **Exception Propagation**: Database failures properly raise exceptions
+- **Global Handlers**: Specialized exception handlers for different error types
 
 ## Next Priorities
 
@@ -85,6 +134,9 @@ uvicorn app.main:app --reload --port 8000
 - [ ] OpenTelemetry self-instrumentation
 - [ ] Circuit breaker pattern for DB resilience
 - [ ] Dead letter queue for failed writes
+- [ ] Batch processing for high-throughput scenarios
+- [ ] Compression support for large payloads
+- [ ] Schema registry integration for protobuf evolution
 
 ---
 

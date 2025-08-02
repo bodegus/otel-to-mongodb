@@ -1,5 +1,7 @@
 """Tests for OTEL service."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from app.models import OTELLogsData, OTELMetricsData, OTELTracesData
@@ -97,3 +99,42 @@ class TestOTELService:
         count_keys = ("resourceLogs", "scopeLogs", "logRecords")
         count = otel_service._count_records(json_logs_data["data"], count_keys)
         assert count == json_logs_data["expected_count"]
+
+    @pytest.mark.unit
+    async def test_process_traces_write_failure(self, otel_service, json_traces_data):
+        """Test traces processing handles write failures properly."""
+        # Mock MongoDB client to return failure
+        otel_service.mongodb_client.write_telemetry_data = AsyncMock(
+            return_value={"success": False, "errors": ["Database connection failed"]}
+        )
+
+        traces_data = OTELTracesData(**json_traces_data["data"])
+
+        with pytest.raises(RuntimeError, match="Failed to write traces data"):
+            await otel_service.process_traces(traces_data)
+
+    @pytest.mark.unit
+    async def test_process_metrics_write_failure(self, otel_service, json_metrics_data):
+        """Test metrics processing handles write failures properly."""
+        # Mock MongoDB client to return failure
+        otel_service.mongodb_client.write_telemetry_data = AsyncMock(
+            return_value={"success": False, "errors": ["Database connection failed"]}
+        )
+
+        metrics_data = OTELMetricsData(**json_metrics_data["data"])
+
+        with pytest.raises(RuntimeError, match="Failed to write metrics data"):
+            await otel_service.process_metrics(metrics_data)
+
+    @pytest.mark.unit
+    async def test_process_logs_write_failure(self, otel_service, json_logs_data):
+        """Test logs processing handles write failures properly."""
+        # Mock MongoDB client to return failure
+        otel_service.mongodb_client.write_telemetry_data = AsyncMock(
+            return_value={"success": False, "errors": ["Database connection failed"]}
+        )
+
+        logs_data = OTELLogsData(**json_logs_data["data"])
+
+        with pytest.raises(RuntimeError, match="Failed to write logs data"):
+            await otel_service.process_logs(logs_data)

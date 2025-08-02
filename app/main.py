@@ -13,7 +13,7 @@ import logging
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI, Request
 from google.protobuf.json_format import MessageToDict
 from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceRequest
@@ -25,7 +25,7 @@ from .handlers import (
     unsupported_content_type_error,
 )
 from .models import OTELLogsData, OTELMetricsData, OTELTracesData
-from .mongo_client import MongoDBClient, get_mongodb_client
+from .mongo_client import MongoDBClient
 from .otel_service import OTELService
 
 
@@ -84,8 +84,9 @@ def create_app() -> FastAPI:  # noqa: PLR0915
         return {"status": "healthy", "service": "otel-to-mongodb-api"}
 
     @app.get("/health/detailed")
-    async def detailed_health_check(mongodb_client: MongoDBClient = Depends(get_mongodb_client)):
+    async def detailed_health_check(request: Request):
         """Detailed health check with database status."""
+        mongodb_client = request.app.state.mongodb_client
         health_status = await mongodb_client.health_check()
         # Healthy if ANY database is connected
         primary_healthy = health_status["primary"]["connected"]
@@ -102,7 +103,6 @@ def create_app() -> FastAPI:  # noqa: PLR0915
     @app.post("/v1/traces")
     async def submit_traces(
         request: Request,
-        mongodb_client: MongoDBClient = Depends(get_mongodb_client),
     ):
         """Submit OpenTelemetry traces (JSON or protobuf format)."""
         # Get and normalize content type, default to json
@@ -130,6 +130,7 @@ def create_app() -> FastAPI:  # noqa: PLR0915
         else:
             raise unsupported_content_type_error(content_type)
 
+        mongodb_client = request.app.state.mongodb_client
         service = OTELService(mongodb_client)
         await service.process_traces(traces_data)
 
@@ -139,7 +140,6 @@ def create_app() -> FastAPI:  # noqa: PLR0915
     @app.post("/v1/metrics")
     async def submit_metrics(
         request: Request,
-        mongodb_client: MongoDBClient = Depends(get_mongodb_client),
     ):
         """Submit OpenTelemetry metrics (JSON or protobuf format)."""
         # Get and normalize content type
@@ -167,6 +167,7 @@ def create_app() -> FastAPI:  # noqa: PLR0915
         else:
             raise unsupported_content_type_error(content_type)
 
+        mongodb_client = request.app.state.mongodb_client
         service = OTELService(mongodb_client)
         await service.process_metrics(metrics_data)
 
@@ -176,7 +177,6 @@ def create_app() -> FastAPI:  # noqa: PLR0915
     @app.post("/v1/logs")
     async def submit_logs(
         request: Request,
-        mongodb_client: MongoDBClient = Depends(get_mongodb_client),
     ):
         """Submit OpenTelemetry logs (JSON or protobuf format)."""
         # Get and normalize content type
@@ -204,6 +204,7 @@ def create_app() -> FastAPI:  # noqa: PLR0915
         else:
             raise unsupported_content_type_error(content_type)
 
+        mongodb_client = request.app.state.mongodb_client
         service = OTELService(mongodb_client)
         await service.process_logs(logs_data)
 

@@ -50,18 +50,19 @@ ENABLE_CLOUD_SYNC=true
 ### Quick Start with Docker
 
 ```bash
+# Remove old
+docker stop otel-to-mongodb && docker rm otel-to-mongodb
+
 # Build the image
-docker build -t otel-to-mongodb .
+docker build -t otel-to-mongodb:latest .
 
 # Run container (connects to MongoDB on port 27017, avoids port collisions)
 docker run -d \
   --name otel-to-mongodb \
-  --network otel_otel-network \
+  --env-file .env \
   -p 8083:8083 \
-  -e PRIMARY_MONGODB_URI=mongodb://otel-mongodb:27017/otel_db \
-  -e MONGODB_DATABASE=otel_db \
   --restart unless-stopped \
-  otel-to-mongodb
+  otel-to-mongodb:latest
 ```
 
 ### Docker Compose Setup
