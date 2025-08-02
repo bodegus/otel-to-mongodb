@@ -218,9 +218,16 @@ class ExportTraceServiceResponse(BaseModel):
 
     partial_success: ExportTracePartialSuccess | None = Field(default=None, alias="partialSuccess")
 
+    def model_dump(self, **kwargs):
+        """Return model as dict, excluding None values by default for OTLP compliance."""
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(**kwargs)
+
 
 class ExportMetricsServiceResponse(BaseModel):
     """OTLP-compliant metrics export response."""
+
+    model_config = {"exclude_none": True}
 
     partial_success: ExportMetricsPartialSuccess | None = Field(
         default=None, alias="partialSuccess"
@@ -229,6 +236,8 @@ class ExportMetricsServiceResponse(BaseModel):
 
 class ExportLogsServiceResponse(BaseModel):
     """OTLP-compliant logs export response."""
+
+    model_config = {"exclude_none": True}
 
     partial_success: ExportLogsPartialSuccess | None = Field(default=None, alias="partialSuccess")
 
