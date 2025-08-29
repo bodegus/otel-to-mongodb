@@ -8,6 +8,8 @@ bandit-report*
 *.so
 scratch.md
 CLAUDE.md
+.claude*
+.vscode*
 
 # Distribution / packaging
 .Python

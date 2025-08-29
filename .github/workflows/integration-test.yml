@@ -11,9 +11,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Start services with docker-compose
+    - name: Start services with docker compose
       run: |
-        docker-compose up -d
+        docker compose up -d
 
         # Wait for API to be healthy
         echo "Waiting for services to start..."
@@ -54,11 +54,11 @@ jobs:
       if: failure()
       run: |
         echo "=== API Logs ==="
-        docker-compose logs otel-mongodb-api
+        docker compose logs otel-mongodb-api
         echo "=== MongoDB Logs ==="
-        docker-compose logs mongodb
+        docker compose logs mongodb
 
     - name: Cleanup
       if: always()
       run: |
-        docker-compose down -v
+        docker compose down -v

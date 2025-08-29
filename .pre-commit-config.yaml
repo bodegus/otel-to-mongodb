@@ -1,0 +1,48 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+        exclude: ^\.vscode/
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+        exclude: "reference/"
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: check-docstring-first
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.4
+    hooks:
+      - id: ruff-check
+        name: ruff-lint
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+        name: ruff-format
+
+  - repo: local
+    hooks:
+      - id: pytest-unit
+        name: pytest-unit
+        entry: pytest
+        language: system
+        args: [app/tests/, -v, --tb=short, -q]
+        types: [python]
+        pass_filenames: false
+        always_run: true
+
+  # Security checks now handled by Ruff's S rules (bandit equivalent)
+
+exclude: |
+  (?x)^(
+      reference/.*|
+      \.git/.*|
+      \.venv/.*|
+      venv/.*|
+      build/.*|
+      dist/.*
+  )$
