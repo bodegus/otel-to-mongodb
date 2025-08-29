@@ -44,6 +44,7 @@ docker run -d \
   --name otel-to-mongodb \
   -p 8083:8083 \
   -e PRIMARY_MONGODB_URI="mongodb+srv://username:password@cluster.mongodb.net/" \
+  -e SECONDARY_MONGODB_URI="mongodb://admin:password@mongodb:27017/otel_db?authSource=admin" \
   -e MONGODB_DATABASE="otel_db" \
   otel-to-mongodb:latest
 ```
@@ -114,20 +115,6 @@ The service automatically:
 - Creates the database if it doesn't exist
 - Creates collections: `traces`, `metrics`, `logs`
 - Creates indexes on `created_at` field for efficient queries
-
-### Production Deployment
-
-For production environments with MongoDB Atlas:
-
-```bash
-docker run -d \
-  --name otel-to-mongodb \
-  -p 8083:8083 \
-  -e PRIMARY_MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/" \
-  -e MONGODB_DATABASE="otel_production" \
-  --restart unless-stopped \
-  otel-to-mongodb:latest
-```
 
 ## Testing with Sample Data
 
