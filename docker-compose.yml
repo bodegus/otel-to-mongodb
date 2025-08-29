@@ -1,0 +1,51 @@
+services:
+  otel-mongodb-api:
+    build: .
+    container_name: otel-mongodb-api
+    ports:
+      - "8083:8083"
+    environment:
+      - PRIMARY_MONGODB_URI=mongodb://admin:password@mongodb:27017/otel_db?authSource=admin
+      - MONGODB_DATABASE=otel_db
+      - LOG_LEVEL=INFO
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - otel-network-testing
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  mongodb:
+    image: mongo:8.0
+    container_name: otel-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: otel_db
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - otel-network-testing
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--username", "admin", "--password", "password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  otel-network-testing:
+    driver: bridge

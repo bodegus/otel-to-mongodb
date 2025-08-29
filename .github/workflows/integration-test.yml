@@ -1,0 +1,64 @@
+name: Integration Test
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Start services with docker-compose
+      run: |
+        docker-compose up -d
+
+        # Wait for API to be healthy
+        echo "Waiting for services to start..."
+        for i in {1..30}; do
+          if curl -f http://localhost:8083/health 2>/dev/null; then
+            echo "✅ API is ready!"
+            break
+          fi
+          echo "Waiting for API... ($i/30)"
+          sleep 2
+        done
+
+    - name: Run integration test
+      run: |
+        cd scripts
+        chmod +x test_local.sh
+        ./test_local.sh
+
+    - name: Validate response
+      run: |
+        # Check if response file exists and contains expected empty JSON object
+        if [ -f "scripts/local_response.json" ]; then
+          RESPONSE=$(cat scripts/local_response.json)
+          if [ "$RESPONSE" = "{}" ]; then
+            echo "✅ Test passed: Received expected empty JSON response"
+            exit 0
+          else
+            echo "❌ Test failed: Unexpected response"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+        else
+          echo "❌ Test failed: Response file not found"
+          exit 1
+        fi
+
+    - name: Show logs on failure
+      if: failure()
+      run: |
+        echo "=== API Logs ==="
+        docker-compose logs otel-mongodb-api
+        echo "=== MongoDB Logs ==="
+        docker-compose logs mongodb
+
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose down -v

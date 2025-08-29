@@ -1,0 +1,73 @@
+{
+  "resource": "/v1/metrics",
+  "path": "/v1/metrics",
+  "httpMethod": "POST",
+  "headers": {
+    "Accept": "*/*",
+    "Content-Type": "application/x-protobuf",
+    "Host": "your-api-gateway.execute-api.us-east-1.amazonaws.com",
+    "User-Agent": "otel-grpc-java/1.0",
+    "X-Forwarded-For": "127.0.0.1",
+    "X-Forwarded-Port": "443",
+    "X-Forwarded-Proto": "https"
+  },
+  "multiValueHeaders": {
+    "Accept": [
+      "*/*"
+    ],
+    "Content-Type": [
+      "application/x-protobuf"
+    ],
+    "Host": [
+      "your-api-gateway.execute-api.us-east-1.amazonaws.com"
+    ],
+    "User-Agent": [
+      "otel-grpc-java/1.0"
+    ],
+    "X-Forwarded-For": [
+      "127.0.0.1"
+    ],
+    "X-Forwarded-Port": [
+      "443"
+    ],
+    "X-Forwarded-Proto": [
+      "https"
+    ]
+  },
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourceId": "abcdef",
+    "resourcePath": "/v1/metrics",
+    "httpMethod": "POST",
+    "extendedRequestId": "abcdefghijklmnop",
+    "requestTime": "25/Aug/2025:00:00:00 +0000",
+    "path": "/sandbox/v1/metrics",
+    "accountId": "123456789012",
+    "protocol": "HTTP/1.1",
+    "stage": "sandbox",
+    "domainPrefix": "api",
+    "requestTimeEpoch": 1724544000000,
+    "requestId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "identity": {
+      "cognitoIdentityPoolId": null,
+      "accountId": null,
+      "cognitoIdentityId": null,
+      "caller": null,
+      "sourceIp": "127.0.0.1",
+      "principalOrgId": null,
+      "accessKey": null,
+      "cognitoAuthenticationType": null,
+      "cognitoAuthenticationProvider": null,
+      "userArn": null,
+      "userAgent": "otel-grpc-java/1.0",
+      "user": null
+    },
+    "domainName": "api.example.com",
+    "apiId": "abcdefghij"
+  },
+  "body": "CsQBClIKHQoMc2VydmljZS5uYW1lEg0KC2NsYXVkZS1jb2RlChoKD3NlcnZpY2UudmVyc2lvbhIHCgUxLjAuMAoVCgtlbnZpcm9ubWVudBIGCgR0ZXN0Em4KFwoOY2xhdWRlLm1ldHJpY3MSBTEuMC4wElMKC3Rlc3QubWV0cmljEhlBIHRlc3QgbWV0cmljIGZyb20gQ2xhdWRlGgExKiYKJBkAtOaEudpeGCEAAAAAAABFQDoQCgZtZXRob2QSBgoEdGVzdA==",
+  "isBase64Encoded": true
+}

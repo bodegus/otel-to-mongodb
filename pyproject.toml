@@ -1,0 +1,242 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "otel-to-mongodb"
+version = "0.1.0"
+description = "OpenTelemetry to MongoDB API service"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "Alex Johansson"}
+]
+keywords = ["opentelemetry", "mongodb", "fastapi", "api", "telemetry"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Topic :: System :: Monitoring",
+    "Topic :: Database",
+]
+
+dependencies = [
+    # Core API
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+
+    # Database
+    "pymongo>=4.6.0",
+    "motor>=3.3.0",
+
+    # OpenTelemetry
+    "opentelemetry-api>=1.21.0",
+    "opentelemetry-sdk>=1.21.0",
+    "opentelemetry-instrumentation-fastapi>=0.42b0",
+    "opentelemetry-instrumentation-pymongo>=0.42b0",
+    "opentelemetry-exporter-otlp>=1.21.0",
+    "opentelemetry-proto>=1.25.0",
+
+    # Utilities
+    "structlog>=23.2.0",
+    "python-json-logger>=2.0.0",
+    "tenacity>=8.2.0",
+    "python-multipart>=0.0.6",
+    "click>=8.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.12.0",
+    "pytest-xdist>=3.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-timeout>=2.2.0",  # For integration test timeouts
+    "mongomock>=4.1.0",
+    "httpx>=0.25.0",
+
+    # Code Quality & Linting
+    "ruff>=0.1.8",  # Modern linter/formatter (replaces flake8, isort, bandit, black + more)
+    "mypy>=1.7.0",
+    "types-protobuf>=4.24.0",  # Type stubs for protobuf
+    "pre-commit>=3.5.0",
+
+    # Note: Dependency vulnerability scanning could be added with safety if needed
+
+    # Development Utilities
+    "ipython>=8.17.0",  # Better REPL for debugging
+    "rich>=13.7.0",  # Beautiful terminal output
+
+    # Documentation
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.4.0",
+]
+
+[project.scripts]
+otel-api = "app.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/bodegus/otel-to-mongodb"
+Repository = "https://github.com/bodegus/otel-to-mongodb"
+Issues = "https://github.com/bodegus/otel-to-mongodb/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "utils*"]
+exclude = ["tests*", "reference*"]
+
+# Black configuration removed - now using Ruff's built-in formatting
+
+# isort configuration removed - now using Ruff's built-in import sorting
+
+# Flake8 configuration removed - now using Ruff exclusively
+# Ruff provides all flake8 functionality plus much more
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "mongomock.*",
+    "motor.*",
+    "pymongo.*",
+    "bson.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --strict-config --ignore=reference --maxfail=5 -s --log-cli-level=INFO --log-cli-format='%(asctime)s [%(levelname)8s] %(name)s: %(message)s'"
+testpaths = ["app/tests"]
+markers = [
+    "unit: Unit tests (fast, with mocks)",
+    "integration: Integration tests (slower, with real MongoDB container)",
+    "requires_mongodb: Tests that require a real MongoDB instance",
+    "slow: Slow tests that may take longer to complete",
+]
+
+asyncio_mode = "auto"
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+# Timeout configuration for pytest-timeout plugin
+# Use: pytest --timeout=300 for integration tests
+
+[tool.coverage.run]
+source = ["app", "utils"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__init__.py",
+    "*/conftest.py",
+    "reference/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+precision = 2
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+fix = true
+show-fixes = true
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "S",    # bandit (security)
+    "N",    # pep8-naming
+    "D",    # pydocstyle (docstrings)
+    "ERA",  # eradicate (commented code)
+    "PL",   # pylint
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long, handled by ruff formatter
+    "B008",   # do not perform function calls in argument defaults
+    "B904",   # raise ... from err (too strict for this project)
+    "B017",   # pytest.raises(Exception) is fine for tests
+    "S101",   # use of assert (fine in tests)
+    "S104",   # binding to all interfaces (needed for FastAPI dev)
+    "S106",   # hardcoded password (false positives in tests)
+    "S110",   # try-except-pass (acceptable in cleanup code)
+    "D100",   # missing docstring in public module
+    "D101",   # missing docstring in public class
+    "D102",   # missing docstring in public method
+    "D103",   # missing docstring in public function
+    "D104",   # missing docstring in public package
+    "D105",   # missing docstring in magic method
+    "D107",   # missing docstring in __init__
+    "D203",   # one blank line before class (conflicts with D211)
+    "D212",   # multi-line summary first line (conflicts with D213)
+    "PLR0912", # too many branches (acceptable in complex logic)
+    "PLR0913", # too many arguments
+    "PLR2004", # magic value used in comparison
+    "PLW0603", # global statement (needed for dependency injection)
+    "RUF010",  # use explicit conversion flag (we prefer str() over !s)
+    "RUF013",  # implicit Optional (| None is verbose for simple cases)
+    "UP031",   # use of str() in f-strings is preferred over !s
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "D104"]
+"tests/*" = ["S101", "S106", "D", "PLR2004", "ERA001", "PLC0415"]
+"app/tests/*" = ["S101", "S106", "D", "PLR2004", "ERA001", "PLC0415"]
+"app/tests/integration/*" = ["S101", "S106", "S603", "S607", "D", "PLR2004", "ERA001", "RUF005", "PLC0415"]
+"*.py" = ["ERA001"]  # Allow commented code during development
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "utils"]
+force-single-line = false
+lines-after-imports = 2
+split-on-trailing-comma = true
+
+# Ruff formatter configuration
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+
+# bandit configuration removed - now using Ruff's S rules for security scanning
