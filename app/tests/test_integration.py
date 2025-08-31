@@ -357,7 +357,8 @@ class TestProtobufSpecificIntegration:
         self, otel_integration_context, malformed_protobuf_data
     ):
         """Test that malformed protobuf data is handled gracefully."""
-        # Use fixture data for the test
+        # Use both context and fixture data for the test
+        _ = otel_integration_context  # Mark as used
         with pytest.raises(Exception) as exc_info:
             await parse_protobuf_data_via_handler(malformed_protobuf_data["binary_data"], "traces")
 
@@ -374,7 +375,8 @@ class TestProtobufSpecificIntegration:
         self, otel_integration_context, empty_protobuf_traces_data
     ):
         """Test that empty protobuf data is handled gracefully."""
-        # Use fixture data for the test
+        # Use both context and fixture data for the test
+        _ = otel_integration_context  # Mark as used
         with pytest.raises(Exception) as exc_info:
             await parse_protobuf_data_via_handler(
                 empty_protobuf_traces_data["binary_data"], "traces"
@@ -414,6 +416,120 @@ class TestProtobufSpecificIntegration:
 
         expected_count = large_protobuf_traces_data["expected_count"]
         print(f"✅ Large protobuf: {expected_count} spans validated against fixture data")
+
+
+class TestWritePersistenceIntegration:
+    """Test write persistence to catch premature termination issues."""
+
+    @pytest.mark.integration
+    @pytest.mark.requires_mongodb
+    @pytest.mark.asyncio
+    async def test_write_persistence_with_immediate_verification(
+        self, otel_integration_context, json_metrics_data
+    ):
+        """Test that writes are fully persisted before returning success."""
+        context = otel_integration_context
+
+        # Generate unique request ID with timestamp for precise tracking
+        import time
+
+        request_id = f"persistence-test-{int(time.time() * 1000)}"
+
+        # Process data
+        metrics_data = OTELMetricsData(**json_metrics_data["data"])
+        await context.otel_service.process_metrics(metrics_data, request_id=request_id)
+
+        # CRITICAL: Immediately verify data exists (no delay)
+        # This catches the premature termination bug where process_metrics returns
+        # success but data isn't actually persisted yet
+        documents = await context.verify_telemetry_data(
+            "metrics", expected_count=1, request_id=request_id
+        )
+
+        # Validate the document was actually written and persisted
+        assert len(documents) == 1
+        stored_doc = documents[0]
+        assert stored_doc["request_id"] == request_id
+        assert stored_doc["data_type"] == "metrics"
+
+        # Validate against fixture data
+        validate_stored_data_against_fixture(stored_doc, json_metrics_data, "metrics")
+
+        print(
+            f"✅ Write persistence: Data immediately available after process_metrics() with request_id={request_id}"
+        )
+
+    @pytest.mark.integration
+    @pytest.mark.requires_mongodb
+    @pytest.mark.asyncio
+    async def test_write_concern_durability(self, otel_integration_context, json_traces_data):
+        """Test that write concern ensures durability across connection changes."""
+        import asyncio
+
+        context = otel_integration_context
+
+        request_id = f"durability-test-{int(asyncio.get_event_loop().time() * 1000)}"
+
+        # Process data
+        traces_data = OTELTracesData(**json_traces_data["data"])
+        await context.otel_service.process_traces(traces_data, request_id=request_id)
+
+        # Simulate connection pool refresh (like lambda container reuse)
+        # This tests that data survives connection changes
+        await context.mongo_client.disconnect()
+        await context.mongo_client.connect()
+
+        # Verify data still exists after connection refresh
+        documents = await context.verify_telemetry_data(
+            "traces", expected_count=1, request_id=request_id
+        )
+
+        assert len(documents) == 1
+        stored_doc = documents[0]
+        assert stored_doc["request_id"] == request_id
+        validate_stored_data_against_fixture(stored_doc, json_traces_data, "traces")
+
+        print(
+            f"✅ Write durability: Data persisted across connection refresh with request_id={request_id}"
+        )
+
+    @pytest.mark.integration
+    @pytest.mark.requires_mongodb
+    @pytest.mark.asyncio
+    async def test_concurrent_writes_persistence(self, otel_integration_context, json_logs_data):
+        """Test that concurrent writes all persist correctly."""
+        import asyncio
+
+        context = otel_integration_context
+
+        # Create multiple concurrent write tasks
+        concurrent_count = 5
+        request_ids = [
+            f"concurrent-{i}-{int(asyncio.get_event_loop().time() * 1000)}"
+            for i in range(concurrent_count)
+        ]
+
+        async def write_single_log(req_id):
+            logs_data = OTELLogsData(**json_logs_data["data"])
+            await context.otel_service.process_logs(logs_data, request_id=req_id)
+            return req_id
+
+        # Execute all writes concurrently
+        tasks = [write_single_log(req_id) for req_id in request_ids]
+        completed_request_ids = await asyncio.gather(*tasks)
+
+        # Verify ALL writes persisted
+        assert len(completed_request_ids) == concurrent_count
+
+        for req_id in completed_request_ids:
+            documents = await context.verify_telemetry_data(
+                "logs", expected_count=1, request_id=req_id
+            )
+            assert len(documents) == 1
+            assert documents[0]["request_id"] == req_id
+            validate_stored_data_against_fixture(documents[0], json_logs_data, "logs")
+
+        print(f"✅ Concurrent writes: All {concurrent_count} writes persisted correctly")
 
 
 class TestDatabaseFailoverIntegration:

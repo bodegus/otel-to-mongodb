@@ -118,13 +118,15 @@ def create_app() -> FastAPI:  # noqa: PLR0915
             traces_data = OTELTracesData(**json_data)
         elif "application/x-protobuf" in content_type:
             raw_data = await request.body()
-            logger.debug("Received protobuf traces request",
-                        data_size=len(raw_data) if raw_data else 0,
-                        content_type=content_type,
-                        data_hex_start=raw_data[:50].hex() if raw_data else "",
-                        data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "",
-                        utf8_corrupted=b'\xef\xbf\xbd' in raw_data if raw_data else False,
-                        user_agent=request.headers.get("user-agent", ""))
+            logger.debug(
+                "Received protobuf traces request",
+                data_size=len(raw_data) if raw_data else 0,
+                content_type=content_type,
+                data_hex_start=raw_data[:50].hex() if raw_data else "",
+                data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "",
+                utf8_corrupted=b"\xef\xbf\xbd" in raw_data if raw_data else False,
+                user_agent=request.headers.get("user-agent", ""),
+            )
 
             if not raw_data:
                 raise ProtobufParsingError("Empty protobuf data")
@@ -133,14 +135,19 @@ def create_app() -> FastAPI:  # noqa: PLR0915
             pb_request = ExportTraceServiceRequest()
             try:
                 pb_request.ParseFromString(raw_data)
-                logger.debug("Parsed protobuf request", pb_fields=list(pb_request.DESCRIPTOR.fields_by_name.keys()))
+                logger.debug(
+                    "Parsed protobuf request",
+                    pb_fields=list(pb_request.DESCRIPTOR.fields_by_name.keys()),
+                )
             except Exception as e:
-                logger.error("Failed to parse protobuf traces",
-                           error=str(e),
-                           data_size=len(raw_data),
-                           utf8_corrupted=b'\xef\xbf\xbd' in raw_data,
-                           data_hex_start=raw_data[:50].hex() if len(raw_data) > 0 else "",
-                           data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "")
+                logger.error(
+                    "Failed to parse protobuf traces",
+                    error=str(e),
+                    data_size=len(raw_data),
+                    utf8_corrupted=b"\xef\xbf\xbd" in raw_data,
+                    data_hex_start=raw_data[:50].hex() if len(raw_data) > 0 else "",
+                    data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "",
+                )
                 raise
 
             traces_dict = MessageToDict(
@@ -148,7 +155,9 @@ def create_app() -> FastAPI:  # noqa: PLR0915
                 preserving_proto_field_name=False,  # Use camelCase for Pydantic aliases
                 use_integers_for_enums=True,
             )
-            logger.debug("Converted to dict", dict_keys=list(traces_dict.keys()) if traces_dict else [])
+            logger.debug(
+                "Converted to dict", dict_keys=list(traces_dict.keys()) if traces_dict else []
+            )
             traces_data = OTELTracesData(**traces_dict)
         else:
             raise unsupported_content_type_error(content_type)
@@ -175,13 +184,15 @@ def create_app() -> FastAPI:  # noqa: PLR0915
             metrics_data = OTELMetricsData(**json_data)
         elif "application/x-protobuf" in content_type:
             raw_data = await request.body()
-            logger.debug("Received protobuf metrics request",
-                        data_size=len(raw_data) if raw_data else 0,
-                        content_type=content_type,
-                        data_hex_start=raw_data[:50].hex() if raw_data else "",
-                        data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "",
-                        utf8_corrupted=b'\xef\xbf\xbd' in raw_data if raw_data else False,
-                        user_agent=request.headers.get("user-agent", ""))
+            logger.debug(
+                "Received protobuf metrics request",
+                data_size=len(raw_data) if raw_data else 0,
+                content_type=content_type,
+                data_hex_start=raw_data[:50].hex() if raw_data else "",
+                data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "",
+                utf8_corrupted=b"\xef\xbf\xbd" in raw_data if raw_data else False,
+                user_agent=request.headers.get("user-agent", ""),
+            )
 
             if not raw_data:
                 raise ProtobufParsingError("Empty protobuf data")
@@ -190,14 +201,19 @@ def create_app() -> FastAPI:  # noqa: PLR0915
             pb_request = ExportMetricsServiceRequest()
             try:
                 pb_request.ParseFromString(raw_data)
-                logger.debug("Parsed protobuf metrics request", pb_fields=list(pb_request.DESCRIPTOR.fields_by_name.keys()))
+                logger.debug(
+                    "Parsed protobuf metrics request",
+                    pb_fields=list(pb_request.DESCRIPTOR.fields_by_name.keys()),
+                )
             except Exception as e:
-                logger.error("Failed to parse protobuf metrics",
-                           error=str(e),
-                           data_size=len(raw_data),
-                           utf8_corrupted=b'\xef\xbf\xbd' in raw_data,
-                           data_hex_start=raw_data[:50].hex() if len(raw_data) > 0 else "",
-                           data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "")
+                logger.error(
+                    "Failed to parse protobuf metrics",
+                    error=str(e),
+                    data_size=len(raw_data),
+                    utf8_corrupted=b"\xef\xbf\xbd" in raw_data,
+                    data_hex_start=raw_data[:50].hex() if len(raw_data) > 0 else "",
+                    data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "",
+                )
                 raise
 
             metrics_dict = MessageToDict(
@@ -205,7 +221,10 @@ def create_app() -> FastAPI:  # noqa: PLR0915
                 preserving_proto_field_name=False,  # Use camelCase for Pydantic aliases
                 use_integers_for_enums=True,
             )
-            logger.debug("Converted metrics to dict", dict_keys=list(metrics_dict.keys()) if metrics_dict else [])
+            logger.debug(
+                "Converted metrics to dict",
+                dict_keys=list(metrics_dict.keys()) if metrics_dict else [],
+            )
             metrics_data = OTELMetricsData(**metrics_dict)
         else:
             raise unsupported_content_type_error(content_type)
@@ -232,13 +251,15 @@ def create_app() -> FastAPI:  # noqa: PLR0915
             logs_data = OTELLogsData(**json_data)
         elif "application/x-protobuf" in content_type:
             raw_data = await request.body()
-            logger.debug("Received protobuf logs request",
-                        data_size=len(raw_data) if raw_data else 0,
-                        content_type=content_type,
-                        data_hex_start=raw_data[:50].hex() if raw_data else "",
-                        data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "",
-                        utf8_corrupted=b'\xef\xbf\xbd' in raw_data if raw_data else False,
-                        user_agent=request.headers.get("user-agent", ""))
+            logger.debug(
+                "Received protobuf logs request",
+                data_size=len(raw_data) if raw_data else 0,
+                content_type=content_type,
+                data_hex_start=raw_data[:50].hex() if raw_data else "",
+                data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "",
+                utf8_corrupted=b"\xef\xbf\xbd" in raw_data if raw_data else False,
+                user_agent=request.headers.get("user-agent", ""),
+            )
 
             if not raw_data:
                 raise ProtobufParsingError("Empty protobuf data")
@@ -247,14 +268,19 @@ def create_app() -> FastAPI:  # noqa: PLR0915
             pb_request = ExportLogsServiceRequest()
             try:
                 pb_request.ParseFromString(raw_data)
-                logger.debug("Parsed protobuf logs request", pb_fields=list(pb_request.DESCRIPTOR.fields_by_name.keys()))
+                logger.debug(
+                    "Parsed protobuf logs request",
+                    pb_fields=list(pb_request.DESCRIPTOR.fields_by_name.keys()),
+                )
             except Exception as e:
-                logger.error("Failed to parse protobuf logs",
-                           error=str(e),
-                           data_size=len(raw_data),
-                           utf8_corrupted=b'\xef\xbf\xbd' in raw_data,
-                           data_hex_start=raw_data[:50].hex() if len(raw_data) > 0 else "",
-                           data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "")
+                logger.error(
+                    "Failed to parse protobuf logs",
+                    error=str(e),
+                    data_size=len(raw_data),
+                    utf8_corrupted=b"\xef\xbf\xbd" in raw_data,
+                    data_hex_start=raw_data[:50].hex() if len(raw_data) > 0 else "",
+                    data_hex_end=raw_data[-50:].hex() if len(raw_data) > 50 else "",
+                )
                 raise
 
             logs_dict = MessageToDict(
@@ -262,7 +288,9 @@ def create_app() -> FastAPI:  # noqa: PLR0915
                 preserving_proto_field_name=False,  # Use camelCase for Pydantic aliases
                 use_integers_for_enums=True,
             )
-            logger.debug("Converted logs to dict", dict_keys=list(logs_dict.keys()) if logs_dict else [])
+            logger.debug(
+                "Converted logs to dict", dict_keys=list(logs_dict.keys()) if logs_dict else []
+            )
             logs_data = OTELLogsData(**logs_dict)
         else:
             raise unsupported_content_type_error(content_type)
