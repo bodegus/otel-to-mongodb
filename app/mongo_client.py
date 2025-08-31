@@ -7,6 +7,7 @@ from typing import Any
 
 import structlog
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import WriteConcern
 from pymongo.errors import ConnectionFailure, OperationFailure
 
 
@@ -200,7 +201,10 @@ class MongoDBClient:
             # Ensure database setup on first write if not done during connection
             await self._ensure_database_setup_on_write(client, db_type)
 
-            collection = client[self.db_name][data_type]
+            # Get database with write concern to ensure data is fully persisted
+            write_concern = WriteConcern(w="majority", j=True)
+            database = client.get_database(self.db_name, write_concern=write_concern)
+            collection = database[data_type]
             result = await collection.insert_one(document)
             document_id = str(result.inserted_id)
 
