@@ -8,6 +8,86 @@ from pymongo.errors import ConnectionFailure, OperationFailure
 from app.mongo_client import MongoDBClient, get_mongodb_client
 
 
+# Pytest fixtures for mock setup
+@pytest.fixture
+def mock_successful_client():
+    """Create a mock client configured for successful database operations."""
+    mock_client = AsyncMock()
+    mock_database = MagicMock()
+    mock_collection = MagicMock()
+
+    mock_insert_result = MagicMock()
+    mock_insert_result.inserted_id = "test_id_123"
+
+    mock_database.__getitem__.return_value = mock_collection
+    mock_client.get_database = MagicMock(return_value=mock_database)
+    mock_collection.insert_one = AsyncMock(return_value=mock_insert_result)
+
+    return mock_client, mock_collection
+
+
+@pytest.fixture
+def mock_failing_client():
+    """Create a mock client configured to fail database operations."""
+    mock_client = AsyncMock()
+    mock_database = MagicMock()
+    mock_collection = MagicMock()
+
+    mock_database.__getitem__.return_value = mock_collection
+    mock_client.get_database = MagicMock(return_value=mock_database)
+    mock_collection.insert_one = AsyncMock(side_effect=Exception("Write failed"))
+
+    return mock_client, mock_collection
+
+
+@pytest.fixture
+def mock_client_factory():
+    """Factory fixture to create mock clients with custom configurations."""
+
+    def _create_mock_client(insert_result_id="test_id_123", should_fail=False):
+        mock_client = AsyncMock()
+        mock_database = MagicMock()
+        mock_collection = MagicMock()
+
+        mock_database.__getitem__.return_value = mock_collection
+        mock_client.get_database = MagicMock(return_value=mock_database)
+
+        if should_fail:
+            mock_collection.insert_one = AsyncMock(side_effect=Exception("Write failed"))
+        else:
+            mock_insert_result = MagicMock()
+            mock_insert_result.inserted_id = insert_result_id
+            mock_collection.insert_one = AsyncMock(return_value=mock_insert_result)
+
+        return mock_client, mock_collection
+
+    return _create_mock_client
+
+
+@pytest.fixture
+def mock_successful_write_result():
+    """Standard mock result for successful database writes."""
+    mock_result = MagicMock()
+    mock_result.inserted_id = "test_id_123"
+    return mock_result
+
+
+@pytest.fixture
+def setup_mongo_client_mocks():
+    """Fixture to setup common mocks for MongoDBClient instance."""
+
+    def _setup_mocks(mongo_client, primary_client=None, secondary_client=None):
+        mongo_client._validate_connection = AsyncMock(return_value=True)
+        mongo_client._ensure_database_setup_on_write = AsyncMock()
+
+        mongo_client.primary_client = primary_client
+        mongo_client.secondary_client = secondary_client
+
+        return mongo_client
+
+    return _setup_mocks
+
+
 @pytest.mark.unit
 class TestMongoDBClient:
     """Test MongoDB client functionality."""
@@ -185,61 +265,39 @@ class TestMongoDBClient:
 
         mock_primary.close.assert_called_once()
 
-    async def test_write_telemetry_data_success(self, mongo_client):
+    async def test_write_telemetry_data_success(
+        self, mongo_client, mock_successful_client, setup_mongo_client_mocks
+    ):
         """Test successful telemetry data write to primary database."""
-        # Mock primary client
-        mock_primary_client = AsyncMock()
-        mock_collection = AsyncMock()
-        mock_insert_result = MagicMock()
-        mock_insert_result.inserted_id = "test_id_123"
-
-        mock_primary_client.__getitem__.return_value.__getitem__.return_value = mock_collection
-        mock_collection.insert_one.return_value = mock_insert_result
-
-        mongo_client.primary_client = mock_primary_client
-        mongo_client.secondary_client = None  # No secondary database
+        mock_primary_client, mock_collection = mock_successful_client
+        setup_mongo_client_mocks(mongo_client, primary_client=mock_primary_client)
 
         result = await mongo_client.write_telemetry_data(
             data={"test": "data"}, data_type="traces", request_id="test-123"
         )
 
+        # Verify results
         assert result["success"] is True
         assert result["primary_success"] is True
         assert result["secondary_success"] is None
         assert result["document_id"] == "test_id_123"
 
-        # Verify insert was called
+        # Verify insert was called with correct data
         mock_collection.insert_one.assert_called_once()
         call_args = mock_collection.insert_one.call_args[0][0]
         assert call_args["test"] == "data"
         assert call_args["data_type"] == "traces"
         assert call_args["request_id"] == "test-123"
 
-    async def test_write_telemetry_data_both_databases(self, mongo_client):
+    async def test_write_telemetry_data_both_databases(
+        self, mongo_client, mock_client_factory, setup_mongo_client_mocks
+    ):
         """Test telemetry data write to both primary and secondary databases."""
-        # Mock both clients
-        mock_primary_client = AsyncMock()
-        mock_secondary_client = AsyncMock()
-        mock_primary_collection = AsyncMock()
-        mock_secondary_collection = AsyncMock()
-
-        mock_insert_result = MagicMock()
-        mock_insert_result.inserted_id = "test_id_123"
-
-        # Setup primary client
-        mock_primary_client.__getitem__.return_value.__getitem__.return_value = (
-            mock_primary_collection
+        mock_primary_client, mock_primary_collection = mock_client_factory("test_id_123")
+        mock_secondary_client, mock_secondary_collection = mock_client_factory("test_id_123")
+        setup_mongo_client_mocks(
+            mongo_client, primary_client=mock_primary_client, secondary_client=mock_secondary_client
         )
-        mock_primary_collection.insert_one.return_value = mock_insert_result
-
-        # Setup secondary client
-        mock_secondary_client.__getitem__.return_value.__getitem__.return_value = (
-            mock_secondary_collection
-        )
-        mock_secondary_collection.insert_one.return_value = mock_insert_result
-
-        mongo_client.primary_client = mock_primary_client
-        mongo_client.secondary_client = mock_secondary_client
 
         result = await mongo_client.write_telemetry_data(
             data={"test": "data"}, data_type="traces", request_id="test-123"
@@ -253,31 +311,15 @@ class TestMongoDBClient:
         mock_primary_collection.insert_one.assert_called_once()
         mock_secondary_collection.insert_one.assert_called_once()
 
-    async def test_write_telemetry_data_primary_fail_secondary_success(self, mongo_client):
+    async def test_write_telemetry_data_primary_fail_secondary_success(
+        self, mongo_client, mock_client_factory, setup_mongo_client_mocks
+    ):
         """Test telemetry write when primary fails but secondary succeeds."""
-        # Mock both clients
-        mock_primary_client = AsyncMock()
-        mock_secondary_client = AsyncMock()
-        mock_primary_collection = AsyncMock()
-        mock_secondary_collection = AsyncMock()
-
-        mock_secondary_result = MagicMock()
-        mock_secondary_result.inserted_id = "secondary_id_456"
-
-        # Setup primary client to fail
-        mock_primary_client.__getitem__.return_value.__getitem__.return_value = (
-            mock_primary_collection
+        mock_primary_client, _ = mock_client_factory(should_fail=True)
+        mock_secondary_client, _ = mock_client_factory("secondary_id_456")
+        setup_mongo_client_mocks(
+            mongo_client, primary_client=mock_primary_client, secondary_client=mock_secondary_client
         )
-        mock_primary_collection.insert_one.side_effect = Exception("Primary write failed")
-
-        # Setup secondary client to succeed
-        mock_secondary_client.__getitem__.return_value.__getitem__.return_value = (
-            mock_secondary_collection
-        )
-        mock_secondary_collection.insert_one.return_value = mock_secondary_result
-
-        mongo_client.primary_client = mock_primary_client
-        mongo_client.secondary_client = mock_secondary_client
 
         result = await mongo_client.write_telemetry_data(
             data={"test": "data"}, data_type="traces", request_id="test-123"
@@ -288,29 +330,17 @@ class TestMongoDBClient:
         assert result["secondary_success"] is True
         assert result["document_id"] == "secondary_id_456"  # Uses secondary ID
         assert len(result["errors"]) == 1
-        assert "Primary write failed" in result["errors"][0]
+        assert "Write failed" in result["errors"][0]
 
-    async def test_write_telemetry_data_both_fail(self, mongo_client):
+    async def test_write_telemetry_data_both_fail(
+        self, mongo_client, mock_client_factory, setup_mongo_client_mocks
+    ):
         """Test telemetry write when both databases fail."""
-        # Mock both clients
-        mock_primary_client = AsyncMock()
-        mock_secondary_client = AsyncMock()
-        mock_primary_collection = AsyncMock()
-        mock_secondary_collection = AsyncMock()
-
-        # Setup both clients to fail
-        mock_primary_client.__getitem__.return_value.__getitem__.return_value = (
-            mock_primary_collection
+        mock_primary_client, _ = mock_client_factory(should_fail=True)
+        mock_secondary_client, _ = mock_client_factory(should_fail=True)
+        setup_mongo_client_mocks(
+            mongo_client, primary_client=mock_primary_client, secondary_client=mock_secondary_client
         )
-        mock_primary_collection.insert_one.side_effect = Exception("Primary write failed")
-
-        mock_secondary_client.__getitem__.return_value.__getitem__.return_value = (
-            mock_secondary_collection
-        )
-        mock_secondary_collection.insert_one.side_effect = Exception("Secondary write failed")
-
-        mongo_client.primary_client = mock_primary_client
-        mongo_client.secondary_client = mock_secondary_client
 
         result = await mongo_client.write_telemetry_data(
             data={"test": "data"}, data_type="traces", request_id="test-123"
@@ -334,19 +364,12 @@ class TestMongoDBClient:
         assert result["success"] is False
         assert result["error"] == "No databases available"
 
-    async def test_write_telemetry_data_without_request_id(self, mongo_client):
+    async def test_write_telemetry_data_without_request_id(
+        self, mongo_client, mock_successful_client, setup_mongo_client_mocks
+    ):
         """Test telemetry write without request_id parameter."""
-        # Mock primary client
-        mock_primary_client = AsyncMock()
-        mock_collection = AsyncMock()
-        mock_insert_result = MagicMock()
-        mock_insert_result.inserted_id = "test_id_123"
-
-        mock_primary_client.__getitem__.return_value.__getitem__.return_value = mock_collection
-        mock_collection.insert_one.return_value = mock_insert_result
-
-        mongo_client.primary_client = mock_primary_client
-        mongo_client.secondary_client = None
+        mock_primary_client, mock_collection = mock_successful_client
+        setup_mongo_client_mocks(mongo_client, primary_client=mock_primary_client)
 
         result = await mongo_client.write_telemetry_data(
             data={"test": "data"},
@@ -374,37 +397,33 @@ class TestMongoDBClient:
         assert health["secondary"]["connected"] is False
         assert health["secondary"]["configured"] is False
 
-    async def test_health_check_primary_unhealthy(self, mongo_client):
-        """Test health check with unhealthy primary database."""
-        from pymongo.errors import ConnectionFailure
+    @pytest.mark.parametrize(
+        "db_type,error_class,error_message",
+        [
+            ("primary", "ConnectionFailure", "Connection lost"),
+            ("secondary", "OperationFailure", "Operation failed"),
+        ],
+    )
+    async def test_health_check_database_unhealthy(
+        self, mongo_client, db_type, error_class, error_message
+    ):
+        """Test health check with unhealthy database (parametrized for primary/secondary)."""
+        from pymongo.errors import ConnectionFailure, OperationFailure
 
-        mock_primary_client = AsyncMock()
-        mock_primary_client.admin.command = AsyncMock(
-            side_effect=ConnectionFailure("Connection lost")
-        )
+        error_classes = {
+            "ConnectionFailure": ConnectionFailure,
+            "OperationFailure": OperationFailure,
+        }
+        exception = error_classes[error_class](error_message)
 
-        mongo_client.primary_client = mock_primary_client
-
-        health = await mongo_client.health_check()
-
-        assert health["primary"]["connected"] is False
-        assert "Connection lost" in health["primary"]["error"]
-
-    async def test_health_check_secondary_unhealthy(self, mongo_client):
-        """Test health check with unhealthy secondary database."""
-        from pymongo.errors import OperationFailure
-
-        mock_secondary_client = AsyncMock()
-        mock_secondary_client.admin.command = AsyncMock(
-            side_effect=OperationFailure("Operation failed")
-        )
-
-        mongo_client.secondary_client = mock_secondary_client
+        mock_client = AsyncMock()
+        mock_client.admin.command = AsyncMock(side_effect=exception)
+        setattr(mongo_client, f"{db_type}_client", mock_client)
 
         health = await mongo_client.health_check()
 
-        assert health["secondary"]["connected"] is False
-        assert "Operation failed" in health["secondary"]["error"]
+        assert health[db_type]["connected"] is False
+        assert error_message in health[db_type]["error"]
 
     async def test_health_check_both_databases_configured(self, mongo_client):
         """Test health check with both databases configured."""
@@ -438,7 +457,7 @@ class TestMongoDBClient:
         """Test successful database setup with collections and indexes."""
         mock_client = AsyncMock()
         mock_database = AsyncMock()
-        mock_collection = AsyncMock()
+        mock_collection = MagicMock()
 
         # Setup mock hierarchy: client[db_name][collection_name]
         mock_client.__getitem__.return_value = mock_database
@@ -467,26 +486,27 @@ class TestMongoDBClient:
 
         # Test passes if no exception is raised
 
-    async def test_ensure_indexes_success(self, mongo_client):
-        """Test successful index creation."""
-        mock_collection = AsyncMock()
-        mock_collection.create_index = AsyncMock()
+    @pytest.mark.parametrize(
+        "collection_name,db_type,should_fail",
+        [
+            ("traces", "primary", False),
+            ("metrics", "secondary", True),
+        ],
+    )
+    async def test_ensure_indexes(self, mongo_client, collection_name, db_type, should_fail):
+        """Test index creation (parametrized for success/failure scenarios)."""
+        mock_collection = MagicMock()
 
-        await mongo_client._ensure_indexes(mock_collection, "traces", "primary")
-
-        mock_collection.create_index.assert_called_once_with(
-            "created_at", background=True, name="traces_created_at_idx"
-        )
-
-    async def test_ensure_indexes_failure(self, mongo_client):
-        """Test index creation failure is handled gracefully."""
-        mock_collection = AsyncMock()
-        mock_collection.create_index = AsyncMock(side_effect=Exception("Index creation failed"))
-
-        # Should not raise exception, just log warning
-        await mongo_client._ensure_indexes(mock_collection, "metrics", "secondary")
-
-        # Test passes if no exception is raised
+        if should_fail:
+            mock_collection.create_index = AsyncMock(side_effect=Exception("Index creation failed"))
+            # Should not raise exception, just log warning
+            await mongo_client._ensure_indexes(mock_collection, collection_name, db_type)
+        else:
+            mock_collection.create_index = AsyncMock()
+            await mongo_client._ensure_indexes(mock_collection, collection_name, db_type)
+            mock_collection.create_index.assert_called_once_with(
+                "created_at", background=True, name=f"{collection_name}_created_at_idx"
+            )
 
     async def test_database_setup_integration_with_connect(self, mongo_client):
         """Test that database setup is called during connection."""
@@ -505,16 +525,19 @@ class TestMongoDBClient:
         """Test that database setup happens on first write if not done during connection."""
         # Simulate a client that connected but didn't complete setup
         mock_client = AsyncMock()
-        mock_database = AsyncMock()
-        mock_collection = AsyncMock()
+        mock_database = MagicMock()
+        mock_collection = MagicMock()
         mock_insert_result = MagicMock()
         mock_insert_result.inserted_id = "test_id_123"
 
-        # Setup mock hierarchy
-        mock_client.__getitem__.return_value = mock_database
+        # Setup mock hierarchy using get_database approach
         mock_database.__getitem__.return_value = mock_collection
         mock_collection.create_index = AsyncMock()
-        mock_collection.insert_one.return_value = mock_insert_result
+        mock_collection.insert_one = AsyncMock(return_value=mock_insert_result)
+        mock_client.get_database = MagicMock(return_value=mock_database)
+
+        # Mock _validate_connection to return True
+        mongo_client._validate_connection = AsyncMock(return_value=True)
 
         # Set client but mark setup as incomplete
         mongo_client.secondary_client = mock_client
