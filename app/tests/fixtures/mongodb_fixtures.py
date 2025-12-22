@@ -2,7 +2,7 @@
 MongoDB test fixtures for OTEL integration testing.
 
 This module provides standardized MongoDB fixtures using containers
-for consistent testing with time series collections.
+for consistent integration testing.
 
 Usage Examples:
     @pytest.mark.integration
@@ -291,7 +291,7 @@ async def otel_integration_context(
     collisions in parallel testing. Each database is automatically cleaned up after the test.
 
     Provides:
-    - Isolated test database with time series collections
+    - Isolated test database
     - Configured MongoDBClient pointing to test database
     - OTELService instance ready for testing
     - Automatic cleanup after test
