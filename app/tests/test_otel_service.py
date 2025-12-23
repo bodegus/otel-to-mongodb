@@ -138,3 +138,42 @@ class TestOTELService:
 
         with pytest.raises(RuntimeError, match="Failed to write logs data"):
             await otel_service.process_logs(logs_data)
+
+    @pytest.mark.unit
+    async def test_process_traces_write_failure_single_error(self, otel_service, json_traces_data):
+        """Test traces processing handles single error field (not errors array)."""
+        # Mock with single "error" field instead of "errors" array
+        otel_service.mongodb_client.write_telemetry_data = AsyncMock(
+            return_value={"success": False, "error": "No databases available"}
+        )
+
+        traces_data = OTELTracesData(**json_traces_data["data"])
+
+        with pytest.raises(RuntimeError, match="Failed to write traces data"):
+            await otel_service.process_traces(traces_data)
+
+    @pytest.mark.unit
+    async def test_process_metrics_write_failure_single_error(
+        self, otel_service, json_metrics_data
+    ):
+        """Test metrics processing handles single error field (not errors array)."""
+        otel_service.mongodb_client.write_telemetry_data = AsyncMock(
+            return_value={"success": False, "error": "No databases available"}
+        )
+
+        metrics_data = OTELMetricsData(**json_metrics_data["data"])
+
+        with pytest.raises(RuntimeError, match="Failed to write metrics data"):
+            await otel_service.process_metrics(metrics_data)
+
+    @pytest.mark.unit
+    async def test_process_logs_write_failure_single_error(self, otel_service, json_logs_data):
+        """Test logs processing handles single error field (not errors array)."""
+        otel_service.mongodb_client.write_telemetry_data = AsyncMock(
+            return_value={"success": False, "error": "No databases available"}
+        )
+
+        logs_data = OTELLogsData(**json_logs_data["data"])
+
+        with pytest.raises(RuntimeError, match="Failed to write logs data"):
+            await otel_service.process_logs(logs_data)

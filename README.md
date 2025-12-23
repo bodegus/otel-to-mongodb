@@ -71,17 +71,18 @@ export OTEL_RESOURCE_ATTRIBUTES="service.name=claude-code,service.version=1.0.0,
 ### Local Development
 
 ```bash
-# Setup environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -e .[dev]
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync --all-extras
 
 # Run tests
-pytest -m unit          # Unit tests
-pytest -m integration   # Integration tests (requires Docker)
+uv run pytest -m unit          # Unit tests
+uv run pytest -m integration   # Integration tests (requires Docker)
 
 # Start server
-uvicorn app.main:app --reload --port 8083
+uv run uvicorn app.main:app --reload --port 8083
 ```
 
 ## API Endpoints
@@ -149,11 +150,11 @@ app/
 
 ```bash
 # Linting and formatting
-ruff check app/ --fix
-ruff format app/
+uv run ruff check app/ --fix
+uv run ruff format app/
 
 # Run tests with coverage
-pytest --cov=app --cov-report=html
+uv run pytest --cov=app --cov-report=html
 ```
 
 ### Contributing

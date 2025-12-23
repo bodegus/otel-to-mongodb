@@ -19,7 +19,7 @@ echo "API Key: ${API_KEY:0:10}..."
 echo "Protobuf size: $(stat -f%z temp_protobuf.bin 2>/dev/null || stat -c%s temp_protobuf.bin) bytes"
 
 # Send request using OTEL environment settings
-curl -X POST "${API_ENDPOINT}/v1/metrics" \
+curl -X GET "${API_ENDPOINT}/health/detailed" \
     -H "Content-Type: application/x-protobuf" \
     -H "User-Agent: OTel-OTLP-Exporter-JavaScript/0.200.0" \
     -H "x-api-key: ${API_KEY}" \
