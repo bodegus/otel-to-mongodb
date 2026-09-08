@@ -2,19 +2,15 @@
 
 from .mongodb_fixtures import (
     OTELIntegrationTestContext,
+    embedded_client_class,
     get_worker_id,
-    mongodb_container,
     otel_integration_context,
-    start_test_mongodb_container,
-    stop_test_mongodb_container,
 )
 
 
 __all__ = [
     "OTELIntegrationTestContext",
+    "embedded_client_class",
     "get_worker_id",
-    "mongodb_container",
     "otel_integration_context",
-    "start_test_mongodb_container",
-    "stop_test_mongodb_container",
 ]

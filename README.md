@@ -79,11 +79,39 @@ uv sync --all-extras
 
 # Run tests
 uv run pytest -m unit          # Unit tests
-uv run pytest -m integration   # Integration tests (requires Docker)
+uv run pytest -m integration   # Integration tests (Linux only, see below)
 
 # Start server
 uv run uvicorn app.main:app --reload --port 8083
 ```
+
+#### Integration tests
+
+The integration tests run against [embedded MongoDB][embedded-mongo] — MongoDB's real engine
+compiled into the test process, reading and writing a temporary directory. There is no MongoDB
+container to start and no port to bind.
+
+The engine is a compiled extension that upstream publishes neither to PyPI nor as a wheel, so
+`vendor/` carries one we build ourselves (see [scripts/embedded/](scripts/embedded/)). It is
+built for linux/arm64 — the architecture CI runs on and the native one on Apple Silicon — so
+on macOS itself the integration tests skip. Run them in a container instead:
+
+```bash
+./scripts/embedded/run-tests.sh                              # whole suite
+./scripts/embedded/run-tests.sh app/tests/test_integration.py -v
+```
+
+To rebuild the wheel after moving the pinned upstream commit:
+
+```bash
+./scripts/embedded/build-wheels.sh
+```
+
+> **Note:** embedded MongoDB is an experimental, unofficial project under SSPL-1.0. It is a
+> test-only dependency here — it is not installed in the production image and no application
+> code depends on it.
+
+[embedded-mongo]: https://github.com/jeroenvervaeke/embedded-mongo
 
 ## API Endpoints
 

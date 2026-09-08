@@ -10,7 +10,9 @@ repos:
         exclude: ^\.vscode/
       - id: check-added-large-files
         args: ["--maxkb=1000"]
-        exclude: "reference/"
+        # vendor/ holds the pymongo-embedded wheel (~15MB). Upstream publishes it neither to
+        # PyPI nor as a release asset, so the integration tests have no engine without it.
+        exclude: "reference/|vendor/"
       - id: check-merge-conflict
       - id: debug-statements
       - id: check-docstring-first

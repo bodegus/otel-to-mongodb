@@ -5,7 +5,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # arm64, and pinned rather than -latest. The integration tests need the vendored
+    # pymongo-embedded wheel, which is built for linux/arm64 and tagged manylinux_2_39: on an
+    # x86_64 or a pre-24.04 runner pip would decline it and every integration test would
+    # quietly skip. arm64 runners are free for public repositories.
+    runs-on: ubuntu-24.04-arm
     strategy:
       matrix:
         python-version: ["3.12"]
@@ -35,7 +39,8 @@ jobs:
         fail_ci_if_error: false
 
   lint:
-    runs-on: ubuntu-latest
+    # Same runner: `uv sync --all-extras` installs the embedded engine here too.
+    runs-on: ubuntu-24.04-arm
     steps:
     - uses: actions/checkout@v4
 
