@@ -32,8 +32,10 @@ dependencies = [
     "pydantic-settings>=2.1.0",
 
     # Database
-    "pymongo>=4.6.0",
-    "motor>=3.3.0",
+    # Pinned to 4.18.x: pymongo-embedded, used by the integration tests, refuses to import
+    # against anything else. Motor is gone -- it is end-of-life, and its client cannot carry
+    # the embedded engine's connection pool, so app code uses PyMongo's own async client.
+    "pymongo>=4.18,<4.19",
 
     # OpenTelemetry
     "opentelemetry-api>=1.21.0",
@@ -63,6 +65,13 @@ dev = [
     "mongomock>=4.1.0",
     "httpx>=0.25.0",
 
+    # The embedded MongoDB engine the integration tests run against, in place of a container.
+    # linux/arm64 only: it is a compiled extension, upstream publishes no wheel of its own,
+    # and the one we build is vendored under vendor/ (see scripts/embedded/). Anywhere else
+    # -- macOS included -- it is absent and the integration tests skip themselves; use
+    # ./scripts/embedded/run-tests.sh, which runs them in a linux/arm64 container.
+    "pymongo-embedded>=0.1.0 ; sys_platform == 'linux' and platform_machine == 'aarch64'",
+
     # Code Quality & Linting
     "ruff>=0.1.8",  # Modern linter/formatter (replaces flake8, isort, bandit, black + more)
     "mypy>=1.7.0",
@@ -87,6 +96,14 @@ otel-api = "app.cli:main"
 Homepage = "https://github.com/bodegus/otel-to-mongodb"
 Repository = "https://github.com/bodegus/otel-to-mongodb"
 Issues = "https://github.com/bodegus/otel-to-mongodb/issues"
+
+[tool.uv.sources]
+# Built by scripts/embedded/Dockerfile.wheel and committed, because upstream publishes
+# pymongo-embedded neither to PyPI nor as a wheel on its releases. The extension is abi3, so
+# this one wheel spans Python versions -- but not machines, hence arm64 everywhere: CI runs
+# on arm64 runners and run-tests.sh builds an arm64 container on Apple Silicon, so the wheel
+# is always built and used natively. See scripts/embedded/build-wheels.sh for why not amd64.
+pymongo-embedded = { path = "vendor/pymongo_embedded-0.1.0-cp39-abi3-manylinux_2_39_aarch64.whl" }
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -119,8 +136,8 @@ show_error_codes = true
 [[tool.mypy.overrides]]
 module = [
     "mongomock.*",
-    "motor.*",
     "pymongo.*",
+    "pymongo_embedded.*",
     "bson.*",
 ]
 ignore_missing_imports = true
@@ -131,8 +148,8 @@ addopts = "-ra -q --strict-markers --strict-config --ignore=reference --maxfail=
 testpaths = ["app/tests"]
 markers = [
     "unit: Unit tests (fast, with mocks)",
-    "integration: Integration tests (slower, with real MongoDB container)",
-    "requires_mongodb: Tests that require a real MongoDB instance",
+    "integration: Integration tests (slower, against the embedded MongoDB engine)",
+    "requires_mongodb: Tests that require a real MongoDB engine",
     "slow: Slow tests that may take longer to complete",
 ]
 

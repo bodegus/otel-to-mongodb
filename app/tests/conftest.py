@@ -8,7 +8,7 @@ FIXTURE USAGE:
 - Use json_*_data fixtures when you only need JSON format
 - Use protobuf_*_data fixtures when you only need protobuf format
 - Use mock_mongodb_client and test_app for consistent mocking
-- Use otel_integration_context for container-based integration tests (uses time series collections)
+- Use otel_integration_context for integration tests against the embedded MongoDB engine
 """
 
 import asyncio
@@ -20,7 +20,6 @@ from fastapi.testclient import TestClient
 # Import MongoDB integration fixtures
 from .fixtures.mongodb_fixtures import (
     OTELIntegrationTestContext,
-    mongodb_container,
     otel_integration_context,
 )
 
@@ -31,7 +30,6 @@ from .unified_fixtures import *  # noqa: F403
 # Re-export for pytest discovery
 __all__ = [
     "OTELIntegrationTestContext",
-    "mongodb_container",
     "otel_integration_context",
 ]
 

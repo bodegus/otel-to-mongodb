@@ -105,20 +105,20 @@ class TestMongoDBClient:
             return MongoDBClient()
 
     @pytest.mark.unit
-    @patch("app.mongo_client.AsyncIOMotorClient")
-    async def test_connect_primary_success(self, mock_motor_client, mongo_client):
+    @patch("app.mongo_client.AsyncMongoClient")
+    async def test_connect_primary_success(self, mock_mongo_client, mongo_client):
         """Test successful primary connection."""
         mock_client = AsyncMock()
         mock_client.admin.command = AsyncMock(return_value={"ok": 1})
-        mock_motor_client.return_value = mock_client
+        mock_mongo_client.return_value = mock_client
 
         await mongo_client.connect()
 
         assert mongo_client.primary_client == mock_client
         mock_client.admin.command.assert_called_with("ping")
 
-    @patch("app.mongo_client.AsyncIOMotorClient")
-    async def test_connect_primary_failure(self, mock_motor_client):
+    @patch("app.mongo_client.AsyncMongoClient")
+    async def test_connect_primary_failure(self, mock_mongo_client):
         """Test primary connection failure with graceful degradation."""
         # Setup environment for both primary and secondary
         with patch.dict(
@@ -146,7 +146,7 @@ class TestMongoDBClient:
                 return mock_primary_client
             return mock_secondary_client
 
-        mock_motor_client.side_effect = side_effect
+        mock_mongo_client.side_effect = side_effect
 
         await mongo_client.connect()
 
@@ -154,8 +154,8 @@ class TestMongoDBClient:
         assert mongo_client.primary_client is None
         assert mongo_client.secondary_client == mock_secondary_client
 
-    @patch("app.mongo_client.AsyncIOMotorClient")
-    async def test_connect_secondary_success(self, mock_motor_client):
+    @patch("app.mongo_client.AsyncMongoClient")
+    async def test_connect_secondary_success(self, mock_mongo_client):
         """Test secondary connection success."""
         with patch.dict(
             "os.environ",
@@ -168,15 +168,15 @@ class TestMongoDBClient:
 
         mock_client = AsyncMock()
         mock_client.admin.command = AsyncMock(return_value={"ok": 1})
-        mock_motor_client.return_value = mock_client
+        mock_mongo_client.return_value = mock_client
 
         await mongo_client.connect()
 
         assert mongo_client.secondary_client == mock_client
         assert mongo_client.primary_client is None
 
-    @patch("app.mongo_client.AsyncIOMotorClient")
-    async def test_connect_secondary_failure(self, mock_motor_client):
+    @patch("app.mongo_client.AsyncMongoClient")
+    async def test_connect_secondary_failure(self, mock_mongo_client):
         """Test secondary connection failure."""
         with patch.dict(
             "os.environ",
@@ -202,7 +202,7 @@ class TestMongoDBClient:
                 return mock_primary_client
             return mock_secondary_client
 
-        mock_motor_client.side_effect = side_effect
+        mock_mongo_client.side_effect = side_effect
 
         await mongo_client.connect()
 
@@ -219,8 +219,8 @@ class TestMongoDBClient:
         with pytest.raises(ConnectionError, match="No MongoDB databases available"):
             await mongo_client_no_uri.connect()
 
-    @patch("app.mongo_client.AsyncIOMotorClient")
-    async def test_connect_both_fail_raises_error(self, mock_motor_client):
+    @patch("app.mongo_client.AsyncMongoClient")
+    async def test_connect_both_fail_raises_error(self, mock_mongo_client):
         """Test that ConnectionError is raised when both databases fail to connect."""
         with patch.dict(
             "os.environ",
@@ -235,35 +235,38 @@ class TestMongoDBClient:
         # Mock both clients to fail
         mock_client = AsyncMock()
         mock_client.admin.command = AsyncMock(side_effect=ConnectionFailure("Connection failed"))
-        mock_motor_client.return_value = mock_client
+        mock_mongo_client.return_value = mock_client
 
         with pytest.raises(ConnectionError, match="No MongoDB databases available"):
             await mongo_client.connect()
 
     async def test_disconnect_both_clients(self, mongo_client):
         """Test disconnecting from both databases."""
-        # Mock both clients with MagicMock for close() to avoid warnings
-        mock_primary = MagicMock()
-        mock_secondary = MagicMock()
+        # PyMongo's asynchronous close is a coroutine, so close() has to be awaitable
+        mock_primary = MagicMock(close=AsyncMock())
+        mock_secondary = MagicMock(close=AsyncMock())
 
         mongo_client.primary_client = mock_primary
         mongo_client.secondary_client = mock_secondary
 
         await mongo_client.disconnect()
 
-        mock_primary.close.assert_called_once()
-        mock_secondary.close.assert_called_once()
+        mock_primary.close.assert_awaited_once()
+        mock_secondary.close.assert_awaited_once()
+        assert mongo_client.primary_client is None
+        assert mongo_client.secondary_client is None
 
     async def test_disconnect_partial_clients(self, mongo_client):
         """Test disconnecting when only some clients are available."""
-        # Mock only primary client with MagicMock for close() to avoid warnings
-        mock_primary = MagicMock()
+        # Mock only primary client; close() must be awaitable as above
+        mock_primary = MagicMock(close=AsyncMock())
         mongo_client.primary_client = mock_primary
         mongo_client.secondary_client = None
 
         await mongo_client.disconnect()
 
-        mock_primary.close.assert_called_once()
+        mock_primary.close.assert_awaited_once()
+        assert mongo_client.primary_client is None
 
     async def test_write_telemetry_data_success(
         self, mongo_client, mock_successful_client, setup_mongo_client_mocks
@@ -511,10 +514,10 @@ class TestMongoDBClient:
     async def test_database_setup_integration_with_connect(self, mongo_client):
         """Test that database setup is called during connection."""
         with patch.object(mongo_client, "_ensure_database_setup") as mock_setup:
-            with patch("app.mongo_client.AsyncIOMotorClient") as mock_motor_client:
+            with patch("app.mongo_client.AsyncMongoClient") as mock_mongo_client:
                 mock_client = AsyncMock()
                 mock_client.admin.command = AsyncMock(return_value={"ok": 1})
-                mock_motor_client.return_value = mock_client
+                mock_mongo_client.return_value = mock_client
 
                 await mongo_client.connect()
 

@@ -1,0 +1,51 @@
+# Builds a `pymongo-embedded` wheel. Driven by scripts/embedded/build-wheels.sh, which
+# chooses the platform -- linux/arm64, matching both CI's runners and an Apple Silicon host.
+#
+# The package is not published to PyPI and ships no wheel of its own, so we build one from
+# source with maturin and vendor the result. The heavy part -- MongoDB's own server code --
+# is NOT compiled here: embedded-mongodb-sys downloads a prebuilt, sha256-pinned native
+# library from the upstream release named in its `prebuilt.rs`. Only the Rust glue compiles.
+#
+# Ubuntu 24.04 carries glibc 2.39, which clears the prebuilt's 2.38 floor and matches the
+# manylinux_2_39 tag upstream's pyproject.toml asks for.
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        curl \
+        git \
+        patchelf \
+        pkg-config \
+        python3 \
+        python3-pip \
+        python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Edition 2024 and resolver 3 need 1.85 or newer.
+ARG RUST_VERSION=1.90.0
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | sh -s -- -y --profile minimal --default-toolchain ${RUST_VERSION}
+ENV PATH=/root/.cargo/bin:${PATH}
+
+# Pin the upstream commit so a rebuild produces the same wheel. Override to move it forward.
+ARG EMBEDDED_MONGO_REF=master
+RUN git clone --filter=blob:none https://github.com/jeroenvervaeke/embedded-mongo /src \
+    && git -C /src checkout ${EMBEDDED_MONGO_REF}
+
+WORKDIR /src
+
+# Installed into the system interpreter rather than a venv: `python3 -m venv` segfaults under
+# qemu when this is built for a foreign architecture, and there is nothing else in the image
+# for maturin to conflict with.
+RUN pip3 install --no-cache-dir --break-system-packages 'maturin[patchelf]>=1.9,<2'
+
+# No --locked: we want maturin to resolve against the checked-in Cargo.lock as-is.
+# If the prebuilt native library cannot be used, the sys crate falls back to building
+# MongoDB from the `mongo/` submodule -- which is absent from this clone, so that path
+# fails fast and loudly rather than running for hours.
+RUN maturin build --release --out /wheels
+
+# Record exactly what went in, so the vendored wheel is traceable.
+RUN git -C /src rev-parse HEAD > /wheels/SOURCE_COMMIT \
+    && ls -l /wheels

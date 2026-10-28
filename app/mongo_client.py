@@ -6,8 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import structlog
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import WriteConcern
+from pymongo import AsyncMongoClient, WriteConcern
 from pymongo.errors import ConnectionFailure, OperationFailure
 
 
@@ -44,8 +43,8 @@ class MongoDBClient:
             _mask_uri_password(self.secondary_uri) if self.secondary_uri else None
         )
 
-        self.primary_client: AsyncIOMotorClient | None = None
-        self.secondary_client: AsyncIOMotorClient | None = None
+        self.primary_client: AsyncMongoClient | None = None
+        self.secondary_client: AsyncMongoClient | None = None
 
         # Track database setup status
         self.primary_setup_complete = False
@@ -58,7 +57,7 @@ class MongoDBClient:
         # Connect to primary database if configured
         if self.primary_uri:
             try:
-                self.primary_client = AsyncIOMotorClient(self.primary_uri)
+                self.primary_client = AsyncMongoClient(self.primary_uri)
                 await self.primary_client.admin.command("ping")
                 logger.info("Connected to primary MongoDB", uri=self.primary_logged_uri)
                 await self._ensure_database_setup(self.primary_client, "primary")
@@ -70,7 +69,7 @@ class MongoDBClient:
         # Connect to secondary database if configured
         if self.secondary_uri:
             try:
-                self.secondary_client = AsyncIOMotorClient(self.secondary_uri)
+                self.secondary_client = AsyncMongoClient(self.secondary_uri)
                 await self.secondary_client.admin.command("ping")
                 logger.info("Connected to secondary MongoDB", uri=self.secondary_logged_uri)
                 await self._ensure_database_setup(self.secondary_client, "secondary")
@@ -83,7 +82,7 @@ class MongoDBClient:
         if not self.primary_client and not self.secondary_client:
             raise ConnectionError("No MongoDB databases available")
 
-    async def _ensure_database_setup(self, client: AsyncIOMotorClient, db_type: str) -> None:
+    async def _ensure_database_setup(self, client: AsyncMongoClient, db_type: str) -> None:
         """Ensure database, collections, and indexes exist."""
         try:
             logger.info("Setting up database structure", db_type=db_type, database=self.db_name)
@@ -116,9 +115,7 @@ class MongoDBClient:
                 "Failed to create index", db_type=db_type, collection=collection_name, error=str(e)
             )
 
-    async def _ensure_database_setup_on_write(
-        self, client: AsyncIOMotorClient, db_type: str
-    ) -> None:
+    async def _ensure_database_setup_on_write(self, client: AsyncMongoClient, db_type: str) -> None:
         """Ensure database setup before writing, if not already completed."""
         setup_complete = (
             self.primary_setup_complete if db_type == "primary" else self.secondary_setup_complete
@@ -132,7 +129,7 @@ class MongoDBClient:
             else:
                 self.secondary_setup_complete = True
 
-    async def _validate_connection(self, client: AsyncIOMotorClient, db_type: str) -> bool:
+    async def _validate_connection(self, client: AsyncMongoClient, db_type: str) -> bool:
         """Validate that a database connection is still active."""
         try:
             await client.admin.command("ping")
@@ -143,10 +140,21 @@ class MongoDBClient:
 
     async def disconnect(self) -> None:
         """Disconnect from MongoDB instances."""
+        # Unlike motor's, PyMongo's asynchronous close is a coroutine. Awaiting it matters
+        # for the embedded engine used in tests: the close is what releases the engine, and
+        # only one may be open per process, so a reconnect afterwards depends on it.
         if self.primary_client:
-            self.primary_client.close()
+            await self.primary_client.close()
+            self.primary_client = None
         if self.secondary_client:
-            self.secondary_client.close()
+            await self.secondary_client.close()
+            self.secondary_client = None
+
+        # A later connect() must redo the collection and index setup against whatever it
+        # opens, rather than trusting flags left over from the connection just closed.
+        self.primary_setup_complete = False
+        self.secondary_setup_complete = False
+
         logger.info("Disconnected from MongoDB")
 
     async def write_telemetry_data(
@@ -194,7 +202,7 @@ class MongoDBClient:
         return self._combine_results(results)
 
     async def _write_to_database(
-        self, client: AsyncIOMotorClient, db_type: str, document: dict[str, Any], data_type: str
+        self, client: AsyncMongoClient, db_type: str, document: dict[str, Any], data_type: str
     ) -> dict[str, Any]:
         """Write to a specific database."""
         try:
